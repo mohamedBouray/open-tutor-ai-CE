@@ -10,7 +10,7 @@ from open_webui.models.users import Users
 from open_tutorai.config import AppConfig
 from open_tutorai.models.database import init_database
 
-from open_tutorai.routers import response_feedbacks, auths, supports
+from open_tutorai.routers import response_feedbacks, auths, supports,classe , assignment
 
 from open_tutorai.env import (
     CHANGELOG,
@@ -82,8 +82,9 @@ app.include_router(
     response_feedbacks.router, prefix="/api/v1", tags=["response-feedbacks"]
 )
 app.include_router(auths.router, prefix="/auths", tags=["auths"])
+app.include_router(classe.router, prefix="/api/v1/classe", tags=["classe"])
 app.include_router(supports.router, prefix="/api/v1", tags=["supports"])
-
+app.include_router(assignment.router, prefix="/api/v1/assignment", tags=["assignment"])
 
 @app.get("/api/changelog")
 async def get_app_changelog():

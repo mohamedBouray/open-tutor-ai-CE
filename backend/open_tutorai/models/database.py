@@ -6,6 +6,7 @@ the same database connection as OpenWebUI to maintain compatibility.
 """
 
 from sqlalchemy import (
+    BigInteger,
     Column,
     Integer,
     String,
@@ -83,6 +84,50 @@ class SupportFile(Base):
         return f"<SupportFile(id={self.id}, support_id={self.support_id}, filename={self.filename})>"
 
 
+class Classe(Base):
+    __tablename__ = f"{PREFIX}classe"
+
+    id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)  
+    course = Column(String, nullable=True) 
+    user_id = Column(String, index=True, nullable=False) 
+    student_count = Column(Integer, default=0) 
+    created_at = Column(DateTime, server_default=func.now()) 
+
+    assignments = relationship("Assignment", back_populates="classe", cascade="all, delete-orphan")
+    enrollments = relationship("Enrollment", back_populates="classe", cascade="all, delete-orphan")
+
+class Assignment(Base):
+    __tablename__ = f"{PREFIX}assignment"
+
+    id = Column(String, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True) 
+    classe_id = Column(String, ForeignKey(f"{PREFIX}classe.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, index=True, nullable=False)
+    deadline = Column(DateTime, nullable=True) 
+    points = Column(Integer, default=100)
+    status = Column(String, default="Active") 
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now()) 
+    max_submissions = Column(Integer, default=0) 
+    current_submissions = Column(Integer, default=0)
+
+    classe = relationship("Classe", back_populates="assignments")
+
+class Enrollment(Base):
+    __tablename__ = f"{PREFIX}enrollment"
+    id = Column(String, primary_key=True, index=True)
+    classe_id = Column(String, ForeignKey(f"{PREFIX}classe.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, ForeignKey("user.id", ondelete="CASCADE"), nullable=False) 
+    created_at = Column(DateTime, server_default=func.now())
+    points = Column(Integer, default=0) 
+    joined_at = Column(BigInteger)
+    
+    # Relationships
+    classe = relationship("Classe", back_populates="enrollments")
+    user = relationship("User", foreign_keys=[user_id])
+
 def init_database():
     """
     Initialize the database tables for OpenTutorAI.
@@ -93,6 +138,7 @@ def init_database():
     """
     from open_webui.internal.db import engine
 
+    # Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine, checkfirst=True)
     print("OpenTutorAI database tables initialized successfully")
 

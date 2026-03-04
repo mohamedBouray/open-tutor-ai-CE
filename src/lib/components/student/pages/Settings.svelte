@@ -51,8 +51,8 @@
 
 
 	const submitHandler = async () => {
-		if (name !== $user.name) {
-			if (profileImageUrl === generateInitialsImage($user.name) || profileImageUrl === '') {
+		if (name !== $user?.name) {
+			if (profileImageUrl === generateInitialsImage($user?.name) || profileImageUrl === '') {
 				profileImageUrl = generateInitialsImage(name);
 			}
 		}

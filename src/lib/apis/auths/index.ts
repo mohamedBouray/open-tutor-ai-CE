@@ -424,7 +424,7 @@ export const updateUserProfile = async (token: string, name: string, profileImag
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
-			...(token && { authorization: `Bearer ${token}` })
+			...(token && { Authorization: `Bearer ${token}` })
 		},
 		body: JSON.stringify({
 			name: name,
