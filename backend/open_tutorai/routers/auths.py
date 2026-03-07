@@ -198,33 +198,3 @@ async def get_user_count():
     except Exception as err:
         raise HTTPException(500, detail=ERROR_MESSAGES.DEFAULT(err))
     
-
-
-
-    # add update profile
-
-class UpdateProfileForm(BaseModel):
-    name: str
-    profile_image_url: str
-
-@router.post("/update/profile")
-async def update_profile(
-    form_data: UpdateProfileForm,
-    user=Depends(get_current_user)
-):
-    
-    updated_user = Users.update_user_by_id(
-        user.id, 
-        {
-            "name": form_data.name,
-            "profile_image_url": form_data.profile_image_url
-        }
-    )
-    
-    if updated_user:
-        return updated_user
-    
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Error updating profile"
-    )

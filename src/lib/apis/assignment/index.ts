@@ -16,6 +16,7 @@ export interface AssignmentResponse {
     description: string
     classe_id: string
     deadline: Date
+    classe_name : string
     user_id: string;
     points: number
     created_at: string;
@@ -134,3 +135,10 @@ export const deleteAssignmentById = async (token: string, assignmentId: string) 
     return res;
 };
 
+export const getAssignmentStats = async (token: string) => {
+    const res = await fetch(`${TUTOR_API_BASE_URL}/assignment/stats`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return res.json();
+};

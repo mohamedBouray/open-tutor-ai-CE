@@ -2,7 +2,7 @@
     import { page } from '$app/stores';
     import { getContext, onMount } from 'svelte';
     import type { Writable } from 'svelte/store';
-	import { getLanguages } from '$lib/i18n';
+	;
 
     // ==== Icons===
     import DashboardIcon from '$lib/components/icons/Dashboard.svelte';

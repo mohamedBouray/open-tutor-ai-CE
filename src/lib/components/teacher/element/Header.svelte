@@ -90,7 +90,6 @@
             </h2>
             <img src="/teacher/emoji.png" alt="emoji" class="ml-2 h-6 w-6">  
         </div>
-        <p class="m-0 p-0 text-gray-600 dark:text-gray-400">{$i18n.t('Let’s learn something new today')}!</p>
     </div>
 
     <!-- BARRES Icons  -->

@@ -84,6 +84,7 @@ app.include_router(
 app.include_router(auths.router, prefix="/auths", tags=["auths"])
 app.include_router(classe.router, prefix="/api/v1/classe", tags=["classe"])
 app.include_router(supports.router, prefix="/api/v1", tags=["supports"])
+
 app.include_router(assignment.router, prefix="/api/v1/assignment", tags=["assignment"])
 
 @app.get("/api/changelog")

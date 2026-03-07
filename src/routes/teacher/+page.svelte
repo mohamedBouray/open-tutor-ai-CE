@@ -1,7 +1,8 @@
-<script>
+<script lang="ts">
 	import { goto } from '$app/navigation';
 	import { user } from '$lib/stores';
   import { onMount, getContext } from 'svelte';
+
 
 
 	let loading = true;

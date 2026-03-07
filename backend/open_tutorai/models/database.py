@@ -8,14 +8,13 @@ the same database connection as OpenWebUI to maintain compatibility.
 from sqlalchemy import (
     BigInteger,
     Column,
+    Float,
     Integer,
     String,
     Text,
     DateTime,
     ForeignKey,
-    Boolean,
     func,
-    ARRAY,
 )
 from sqlalchemy.orm import relationship
 from open_webui.internal.db import Base, get_db, JSONField
@@ -83,7 +82,9 @@ class SupportFile(Base):
     def __repr__(self):
         return f"<SupportFile(id={self.id}, support_id={self.support_id}, filename={self.filename})>"
 
-
+#################################################
+############## La partie Teacher ################
+#################################################
 class Classe(Base):
     __tablename__ = f"{PREFIX}classe"
 
@@ -109,7 +110,7 @@ class Assignment(Base):
     points = Column(Integer, default=100)
     status = Column(String, default="Active") 
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now()) 
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     max_submissions = Column(Integer, default=0) 
     current_submissions = Column(Integer, default=0)
 
@@ -127,6 +128,7 @@ class Enrollment(Base):
     # Relationships
     classe = relationship("Classe", back_populates="enrollments")
     user = relationship("User", foreign_keys=[user_id])
+
 
 def init_database():
     """
