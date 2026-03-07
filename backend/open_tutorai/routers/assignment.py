@@ -7,8 +7,6 @@ from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
 from sqlalchemy import case, desc
 from sqlalchemy.orm import sessionmaker
-
-# Imports dyal l-projet dyalk
 from open_webui.utils.auth import get_current_user
 from open_webui.internal.db import engine
 from open_tutorai.models.database import Assignment, Classe, Base
@@ -41,13 +39,12 @@ class AssignmentResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- Helpers ---
+
 def get_db_session():
     Session = sessionmaker(bind=engine)
     return Session()
 
 def sync_assignment_status(session, assignment):
-    """Kadi l-update l status f l-database"""
     now = datetime.now()
     new_status = "Active"
     
@@ -113,7 +110,6 @@ async def create_assignment(assignment_data: AssignmentCreateRequest, user=Depen
 async def list_Assignment(user=Depends(get_current_user)):
     session = get_db_session()
     try:
-
         status_priority = case(
             {
                 "Active": 1,
@@ -135,7 +131,6 @@ async def list_Assignment(user=Depends(get_current_user)):
         assignments_data = []
         for assign, c_name in results:
             sync_assignment_status(session, assign)
-            
             d = {
                 "id": assign.id,
                 "title": assign.title,
@@ -150,7 +145,6 @@ async def list_Assignment(user=Depends(get_current_user)):
                 "current_submissions": assign.current_submissions
             }
             assignments_data.append(d)
-        
         session.commit()
         return assignments_data
     except Exception as e:
@@ -158,22 +152,21 @@ async def list_Assignment(user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         session.close()
+
 @router.get("/stats")
 async def get_assignment_stats(user=Depends(get_current_user)):
     session = get_db_session()
     try:
-
         all_assignments = session.query(Assignment).filter(
             Assignment.user_id == user.id
         ).all()
         
-
         for a in all_assignments:
             sync_assignment_status(session, a)
         session.commit()
 
-
         total = len(all_assignments)
+
         active_count = len([a for a in all_assignments if a.status == "Active"])
         pending_count = len([a for a in all_assignments if a.status == "Pending"])
         completed_count = len([a for a in all_assignments if a.status == "Completed"])
@@ -198,16 +191,25 @@ async def get_assignment_stats(user=Depends(get_current_user)):
         last_week = datetime.now() - timedelta(days=7)
         new_this_week = len([a for a in all_assignments if a.created_at >= last_week])
 
+        now = datetime.now()
+        overdue_count = len([
+            a for a in all_assignments 
+            if a.status == "Pending" and a.deadline < now
+        ])
+        completion_change = "+2% this week" if completion_rate > 0 else "No change"
+
         return {
             "total": total,
             "total_change": f"+{new_this_week} this week",
+
             "avg_rate": f"{avg_rate}%",
-            "avg_rate_change": "+2% trend" if avg_rate > 0 else "0%", # Teqribi
+            "avg_rate_change": "+2% trend" if avg_rate > 0 else "0%", 
+
             "pending": pending_count,
-            "pending_change": "Action needed" if pending_count > 0 else "All caught up",
+            "pending_change": f"{overdue_count} overdue" if overdue_count > 0 else "All caught up",
+
             "completion": f"{completion_rate}%",
-            "completion_change": "Target status",
-            "active_count": active_count
+            "completion_change": completion_change,
         }
         
     except Exception as e:

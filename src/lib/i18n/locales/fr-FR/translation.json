@@ -1539,5 +1539,8 @@
 	"Completed": "Terminé",
 	"In progress": "En cours",
 	"Pending": "En attente",
-	"Overdue": "En retard"
+	"Overdue": "En retard",
+	"Security & Password": "Sécurité et mot de passe",
+	"Create an Assignment": "Créer un devoir",
+	"Assignment Title": "Titre du devoir"
 }

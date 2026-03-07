@@ -31,7 +31,7 @@
 		assignmentTitle = title || '';
 		assignmentDescription = description || '';
 		assignmentClass = classe_id || '';
-		assignmentDueDate = formatDate(deadline) || '';
+		assignmentDueDate = deadline ? formatDate(deadline) : '';
 		assignmentMaxPoints = points || 0;
 	}
 

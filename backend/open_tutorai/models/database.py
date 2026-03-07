@@ -4,7 +4,6 @@ Database module for OpenTutorAI
 This module defines the database tables specific to OpenTutorAI while using
 the same database connection as OpenWebUI to maintain compatibility.
 """
-
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -118,6 +117,7 @@ class Assignment(Base):
 
 class Enrollment(Base):
     __tablename__ = f"{PREFIX}enrollment"
+    
     id = Column(String, primary_key=True, index=True)
     classe_id = Column(String, ForeignKey(f"{PREFIX}classe.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(String, ForeignKey("user.id", ondelete="CASCADE"), nullable=False) 

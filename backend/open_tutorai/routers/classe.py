@@ -5,23 +5,19 @@ import logging
 import uuid
 from datetime import datetime
 from fastapi.responses import JSONResponse
-
 from open_webui.utils.auth import get_current_user
 from open_webui.internal.db import engine, get_db
 from open_tutorai.models.database import Classe,Assignment, Enrollment, Base
 from open_webui.models.users import Users 
 from sqlalchemy.orm import Session, joinedload, sessionmaker
 
-# Setup logging
+
 log = logging.getLogger(__name__)
 log.setLevel("INFO")
 
 router = APIRouter()
 
 # --- Pydantic Models ---
-
-
-
 class ClasseCreateRequest(BaseModel):
     name: str
     course: Optional[str] = None
@@ -33,8 +29,6 @@ class ClasseResponse(BaseModel):
     user_id: str
     student_count: int
     created_at: datetime
-    # updated_at=datetime.now()
-
     class Config:
         from_attributes = True
 
@@ -171,7 +165,7 @@ async def update_classe(
 @router.delete("/{classe_id}")
 async def delete_classe(classe_id: str, user=Depends(get_current_user)):
     """
-    Delete a classe (No role check)
+    Delete a classe 
     """
     session = get_db_session()
     try:
@@ -198,7 +192,7 @@ async def delete_classe(classe_id: str, user=Depends(get_current_user)):
 
 
 
-# Add students 
+############### Enrollment Endpoints ###############
 @router.post("/add-student")
 async def add_student_to_classe(
     payload: AddStudentRequest, 
@@ -281,7 +275,6 @@ async def get_students_by_class_id(classe_id: str, user=Depends(get_current_user
     """
     session = get_db_session()
     try:
-        # 1. Check ownership (bach may-choufch ay wahed l-leaderboard)
         classe = session.query(Classe).filter(
             Classe.id == classe_id, 
             Classe.user_id == user.id
@@ -290,16 +283,13 @@ async def get_students_by_class_id(classe_id: str, user=Depends(get_current_user
         if not classe:
             raise HTTPException(status_code=403, detail="Ma3ndekch l-haq tchouf had l-class")
 
-        # 2. Fetch Enrollments + User info
         enrollments = session.query(Enrollment).options(
             joinedload(Enrollment.user)
         ).filter(
             Enrollment.classe_id == classe_id
         ).order_by(Enrollment.points.desc()).all()
 
-        # 3. Transform data bach t-matching Svelte mapping (en.user.name, etc.)
-        return enrollments
-        
+        return enrollments 
     except Exception as e:
         log.error(f"Error leaderboard: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

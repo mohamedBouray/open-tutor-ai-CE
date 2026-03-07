@@ -136,7 +136,6 @@ export const deleteClassById = async (token: string, classId: string) => {
 };
 
 
-
 export const addStudentToClass = async (token: string, data: AddStudentRequest) => {
     const res = await fetch(`${TUTOR_API_BASE_URL}/classe/add-student`, {
         method: 'POST',
@@ -153,6 +152,7 @@ export const addStudentToClass = async (token: string, data: AddStudentRequest) 
     }
     return res.json();
 };
+
 export const getStudentsByClassId = async (token: string, classId: string) => {
     const res = await fetch(`${TUTOR_API_BASE_URL}/classe/${classId}/students`, {
         method: 'GET',

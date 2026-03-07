@@ -3109,5 +3109,8 @@
 	"{{ models }}": "{{ نماذج }}",
 	"{{COUNT}} Replies": "",
 	"{{TUTOR_NAME}} Backend Required": "",
-	"{{user}}'s Chats": "دردشات {{user}}"
+	"{{user}}'s Chats": "دردشات {{user}}",
+	"Security & Password": "الأمان وكلمة المرور",
+	"Create an Assignment": "إنشاء مهمة",
+	"Assignment Title": "عنوان المهمة"
 }

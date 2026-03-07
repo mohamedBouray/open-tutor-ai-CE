@@ -1528,5 +1528,8 @@
 	"Completed": "Completed",
 	"In progress": "In progress",
 	"Pending": "Pending",
-	"Overdue": "Overdue"
+	"Overdue": "Overdue",
+	"Security & Password": "Security & Password",
+	"Create an Assignment": "Create an Assignment",
+	"Assignment Title": "Assignment Title"
 }

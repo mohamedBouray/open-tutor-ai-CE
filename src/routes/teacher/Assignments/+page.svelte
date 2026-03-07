@@ -39,7 +39,7 @@
     interface I18n { t: (key: string) => string; }
     const i18n = getContext<Writable<I18n>>('i18n');
 
-	function openModal() {showAssignementModal = true;}
+	function openModal() {showAssignementModal = true; selectedAssignmentId = null;selectedAssignmentData = null;}
 	function MoreDropdown(id: string | number) {showMoreDropdown = showMoreDropdown === id ? null : id;}
     function closeAllDropdowns() {showMoreDropdown = null;}
 

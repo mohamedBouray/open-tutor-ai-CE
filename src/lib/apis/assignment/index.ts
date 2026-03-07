@@ -1,7 +1,6 @@
 import { TUTOR_API_BASE_URL } from '$lib/constants';
 
 // --- Types ---
-
 export interface AssignmentCreateRequest {
     title: string
     description: string
@@ -26,36 +25,7 @@ export interface AssignmentResponse {
     current_submissions: number
 }
 
-
-
-
 // --- API Functions ---
-
-export const getMyAssignment = async (token: string): Promise<AssignmentResponse[]> => {
-    let error = null;
-
-    const res = await fetch(`${TUTOR_API_BASE_URL}/assignment/all`, {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'authorization': `Bearer ${token}`
-        }
-    })
-        .then(async (res) => {
-            if (!res.ok) throw await res.json();
-            return res.json();
-        })
-        .catch((err) => {
-            error = err.detail || "Failed to fetch assignement";
-            console.error('Error fetching Assignment:', err);
-            return null;
-        });
-    if (error) throw error;
-    return res;
-};
-
-
 export const createNewAssignment = async (token: string, data: AssignmentCreateRequest): Promise<AssignmentResponse> => {
     let error = null;
 
@@ -82,10 +52,32 @@ export const createNewAssignment = async (token: string, data: AssignmentCreateR
     return res;
 };
 
-export const updateAssignment = async (token: string, assignmentId: string, data: AssignmentCreateRequest): Promise<AssignmentResponse> => {
+export const getMyAssignment = async (token: string): Promise<AssignmentResponse[]> => {
     let error = null;
 
-    // We use PATCH to match the backend logic or PUT if you prefer full replacement
+    const res = await fetch(`${TUTOR_API_BASE_URL}/assignment/all`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'authorization': `Bearer ${token}`
+        }
+    })
+        .then(async (res) => {
+            if (!res.ok) throw await res.json();
+            return res.json();
+        })
+        .catch((err) => {
+            error = err.detail || "Failed to fetch assignement";
+            console.error('Error fetching Assignment:', err);
+            return null;
+        });
+    if (error) throw error;
+    return res;
+};
+
+export const updateAssignment = async (token: string, assignmentId: string, data: AssignmentCreateRequest): Promise<AssignmentResponse> => {
+    let error = null;
     const res = await fetch(`${TUTOR_API_BASE_URL}/assignment/${assignmentId}`, {
         method: 'PATCH',
         headers: {
@@ -108,8 +100,6 @@ export const updateAssignment = async (token: string, assignmentId: string, data
     if (error) throw error;
     return res;
 };
-
-
 
 export const deleteAssignmentById = async (token: string, assignmentId: string) => {
     let error = null;
@@ -134,6 +124,7 @@ export const deleteAssignmentById = async (token: string, assignmentId: string) 
     if (error) throw error;
     return res;
 };
+
 
 export const getAssignmentStats = async (token: string) => {
     const res = await fetch(`${TUTOR_API_BASE_URL}/assignment/stats`, {
