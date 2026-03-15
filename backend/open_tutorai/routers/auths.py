@@ -197,4 +197,3 @@ async def get_user_count():
         return {"count": user_count}
     except Exception as err:
         raise HTTPException(500, detail=ERROR_MESSAGES.DEFAULT(err))
-    

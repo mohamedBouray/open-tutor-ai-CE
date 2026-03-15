@@ -7,13 +7,12 @@ import logging
 import uuid
 from datetime import datetime
 from fastapi.responses import JSONResponse
-from open_webui.utils.auth import get_current_user, timedelta , get_verified_user
+from open_webui.utils.auth import get_current_user, timedelta, get_verified_user
 from open_webui.internal.db import engine, get_db
 from sqlalchemy import func
 from open_tutorai.models.database import Classe, Enrollment, Base, StudentActivity
-from open_webui.models.users import Users 
+from open_webui.models.users import Users
 from sqlalchemy.orm import Session, joinedload, sessionmaker
-
 
 log = logging.getLogger(__name__)
 log.setLevel("INFO")
@@ -24,10 +23,12 @@ router = APIRouter()
 #  /user/miniconda3/envs/tutorai-env/lib/site-packages/open_webui/utils/auth.py
 ##################################################################################
 
+
 # --- Pydantic Models ---
 class ClasseCreateRequest(BaseModel):
     name: str
     course: Optional[str] = None
+
 
 class ClasseResponse(BaseModel):
     id: str
@@ -36,15 +37,19 @@ class ClasseResponse(BaseModel):
     user_id: str
     student_count: int
     created_at: datetime
+
     class Config:
         from_attributes = True
 
+
 class AddStudentRequest(BaseModel):
-    name:str
+    name: str
     email: str
     classId: str
 
+
 # --- Database Session ---
+
 
 def get_db_session():
     """Get a database session using the same engine as OpenWebUI"""
@@ -61,24 +66,26 @@ async def list_classes(user=Depends(get_current_user)):
     """
     session = get_db_session()
     try:
-        classes = session.query(Classe).filter(
-            Classe.user_id == user.id
-        ).order_by(Classe.created_at.desc()).all()
-        
+        classes = (
+            session.query(Classe)
+            .filter(Classe.user_id == user.id)
+            .order_by(Classe.created_at.desc())
+            .all()
+        )
+
         return classes
     except Exception as e:
         log.error(f"Error listing classes: {str(e)}")
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to get classes: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get classes: {str(e)}")
     finally:
         session.close()
 
 
-# create a new class 
+# create a new class
 @router.post("/create", response_model=ClasseResponse)
-async def create_classe(classe_data: ClasseCreateRequest,user=Depends(get_verified_user)):
+async def create_classe(
+    classe_data: ClasseCreateRequest, user=Depends(get_verified_user)
+):
     """
     Create a new Classe (No role check)
     """
@@ -87,7 +94,7 @@ async def create_classe(classe_data: ClasseCreateRequest,user=Depends(get_verifi
     session = get_db_session()
     try:
         classe_id = str(uuid.uuid4())
-        
+
         new_classe = Classe(
             id=classe_id,
             name=classe_data.name,
@@ -97,7 +104,7 @@ async def create_classe(classe_data: ClasseCreateRequest,user=Depends(get_verifi
             created_at=datetime.now(),
             # updated_at=datetime.now()
         )
-        
+
         session.add(new_classe)
         session.commit()
         session.refresh(new_classe)
@@ -109,8 +116,7 @@ async def create_classe(classe_data: ClasseCreateRequest,user=Depends(get_verifi
         session.rollback()
         log.error(f"Error creating classe: {str(e)}")
         raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to create classe: {str(e)}"
+            status_code=500, detail=f"Failed to create classe: {str(e)}"
         )
     finally:
         session.close()
@@ -124,30 +130,34 @@ async def get_classe_by_id(classe_id: str, user=Depends(get_current_user)):
     """
     session = get_db_session()
     try:
-        classe = session.query(Classe).filter(
-            Classe.id == classe_id, 
-            Classe.user_id == user.id
-        ).first()
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == classe_id, Classe.user_id == user.id)
+            .first()
+        )
 
         if not classe:
             raise HTTPException(status_code=404, detail="Classe not found")
-        
+
         return classe
     finally:
         session.close()
 
 
 @router.patch("/{classe_id}", response_model=ClasseResponse)
-async def update_classe(classe_id: str, classe_data: ClasseCreateRequest, user=Depends(get_current_user)):
+async def update_classe(
+    classe_id: str, classe_data: ClasseCreateRequest, user=Depends(get_current_user)
+):
     """
     Update an existing classe (No role check)
     """
     session = get_db_session()
     try:
-        classe = session.query(Classe).filter(
-            Classe.id == classe_id, 
-            Classe.user_id == user.id
-        ).first()
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == classe_id, Classe.user_id == user.id)
+            .first()
+        )
 
         if not classe:
             raise HTTPException(status_code=404, detail="Classe not found")
@@ -169,18 +179,19 @@ async def update_classe(classe_id: str, classe_data: ClasseCreateRequest, user=D
 @router.delete("/{classe_id}")
 async def delete_classe(classe_id: str, user=Depends(get_current_user)):
     """
-    Delete a classe 
+    Delete a classe
     """
     session = get_db_session()
     try:
-        classe = session.query(Classe).filter(
-            Classe.id == classe_id, 
-            Classe.user_id == user.id
-        ).first()
-        
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == classe_id, Classe.user_id == user.id)
+            .first()
+        )
+
         if not classe:
             raise HTTPException(status_code=404, detail="Classe not found")
-        
+
         # delete class folder
         class_folder = f"data/uploads/classes/{classe_id}"
 
@@ -189,7 +200,7 @@ async def delete_classe(classe_id: str, user=Depends(get_current_user)):
 
         session.delete(classe)
         session.commit()
-        
+
         return JSONResponse(
             content={"status": "success", "message": "Classe deleted successfully"}
         )
@@ -200,13 +211,11 @@ async def delete_classe(classe_id: str, user=Depends(get_current_user)):
         session.close()
 
 
-
 ############### Enrollment Endpoints ###############
 # add a student to a class by email (search for user by email, check if they are a student, and enroll them)
 @router.post("/add-student")
 async def add_student_to_classe(
-    payload: AddStudentRequest, 
-    user=Depends(get_current_user)
+    payload: AddStudentRequest, user=Depends(get_current_user)
 ):
     """
     Search for a user by email, check if they are a student, and enroll them.
@@ -216,31 +225,39 @@ async def add_student_to_classe(
         target_user = Users.get_user_by_email(payload.email)
         if not target_user:
             raise HTTPException(
-                status_code=404, 
-                detail="This email is not registered in the System."
+                status_code=404, detail="This email is not registered in the System."
             )
-        
+
         if target_user.role != "user":
             raise HTTPException(
-                status_code=400, 
-                detail=f"User is a {target_user.role}. Only students can be added to the class."
+                status_code=400,
+                detail=f"User is a {target_user.role}. Only students can be added to the class.",
             )
 
-        classe = session.query(Classe).filter(
-            Classe.id == payload.classId, 
-            Classe.user_id == user.id
-        ).first()
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == payload.classId, Classe.user_id == user.id)
+            .first()
+        )
 
         if not classe:
-            raise HTTPException(status_code=403, detail="You don't have access to this class.")
+            raise HTTPException(
+                status_code=403, detail="You don't have access to this class."
+            )
 
-        existing = session.query(Enrollment).filter(
-            Enrollment.user_id == target_user.id,
-            Enrollment.classe_id == payload.classId
-        ).first()
+        existing = (
+            session.query(Enrollment)
+            .filter(
+                Enrollment.user_id == target_user.id,
+                Enrollment.classe_id == payload.classId,
+            )
+            .first()
+        )
 
         if existing:
-            raise HTTPException(status_code=400, detail="Student is already in this class.")
+            raise HTTPException(
+                status_code=400, detail="Student is already in this class."
+            )
 
         enrollment_id = str(uuid.uuid4())
         new_enrollment = Enrollment(
@@ -250,8 +267,7 @@ async def add_student_to_classe(
             points=0,
             grade=0.0,
             notes="",
-            created_at=datetime.now()
-
+            created_at=datetime.now(),
         )
 
         classe.student_count += 1
@@ -270,8 +286,8 @@ async def add_student_to_classe(
                 "email": target_user.email,
                 "points": 0,
                 "grade": 0.0,
-                "notes": ""
-            }
+                "notes": "",
+            },
         }
 
     except HTTPException as he:
@@ -279,87 +295,113 @@ async def add_student_to_classe(
     except Exception as e:
         session.rollback()
         log.error(f"Error adding student: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         session.close()
+
 
 # get students in a class with their points and grades, ordered by points desc
 @router.get("/{classe_id}/students")
 async def get_students_by_class_id(classe_id: str, user=Depends(get_current_user)):
-    
     """Get students in a class with their points and grades, ordered by points desc"""
     session = get_db_session()
     try:
-        classe = session.query(Classe).filter(
-            Classe.id == classe_id, 
-            Classe.user_id == user.id
-        ).first()
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == classe_id, Classe.user_id == user.id)
+            .first()
+        )
 
         if not classe:
-            raise HTTPException(status_code=403, detail="you don't have access to this class.")
+            raise HTTPException(
+                status_code=403, detail="you don't have access to this class."
+            )
 
-        enrollments = session.query(Enrollment).options(
-            joinedload(Enrollment.user)
-        ).filter(
-            Enrollment.classe_id == classe_id
-        ).order_by(Enrollment.points.desc()).all()
+        enrollments = (
+            session.query(Enrollment)
+            .options(joinedload(Enrollment.user))
+            .filter(Enrollment.classe_id == classe_id)
+            .order_by(Enrollment.points.desc())
+            .all()
+        )
 
-        return enrollments 
+        return enrollments
     except Exception as e:
         log.error(f"Error leaderboard: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         session.close()
+
+
 class UpdateGradeRequest(BaseModel):
     grade: float
     notes: Optional[str] = None
 
+
 @router.patch("/{classe_id}/students/{user_id}/grade")
 async def update_student_grade(
-    classe_id: str, 
-    user_id: str, 
-    payload: UpdateGradeRequest, 
-    user=Depends(get_current_user)
+    classe_id: str,
+    user_id: str,
+    payload: UpdateGradeRequest,
+    user=Depends(get_current_user),
 ):
     session = get_db_session()
     try:
-        classe = session.query(Classe).filter(Classe.id == classe_id, Classe.user_id == user.id).first()
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == classe_id, Classe.user_id == user.id)
+            .first()
+        )
         if not classe:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        enrollment = session.query(Enrollment).filter(
-            Enrollment.classe_id == classe_id,
-            Enrollment.user_id == user_id
-        ).first()
+        enrollment = (
+            session.query(Enrollment)
+            .filter(Enrollment.classe_id == classe_id, Enrollment.user_id == user_id)
+            .first()
+        )
 
         if not enrollment:
-            raise HTTPException(status_code=404, detail="Student not found in this class")
+            raise HTTPException(
+                status_code=404, detail="Student not found in this class"
+            )
 
         enrollment.grade = payload.grade
         enrollment.notes = payload.notes
         session.commit()
         return {"status": "success", "message": "Grade updated"}
     finally:
-        session.close()        
+        session.close()
 
 
 ################## Dashboard Stats Endpoint ##################
 @router.get("/teacher/statistics")
 async def get_teacher_stats(
-    classe_id: Optional[str] = None, 
-    current_user = Depends(get_current_user)
+    classe_id: Optional[str] = None, current_user=Depends(get_current_user)
 ):
     session = get_db_session()
     try:
-        query_enrollments = session.query(Enrollment).join(Classe).filter(Classe.user_id == current_user.id)
+        query_enrollments = (
+            session.query(Enrollment)
+            .join(Classe)
+            .filter(Classe.user_id == current_user.id)
+        )
 
         if classe_id and classe_id != "undefined" and classe_id != "":
             query_enrollments = query_enrollments.filter(Classe.id == classe_id)
 
         total_students = query_enrollments.count()
         engaged_students = query_enrollments.filter(Enrollment.points > 0).count()
-        engagement_score = round((engaged_students / total_students) * 100) if total_students > 0 else 0
-        avg_grade_val = session.query(func.avg(Enrollment.grade)).join(Classe).filter(Classe.user_id == current_user.id)
+        engagement_score = (
+            round((engaged_students / total_students) * 100)
+            if total_students > 0
+            else 0
+        )
+        avg_grade_val = (
+            session.query(func.avg(Enrollment.grade))
+            .join(Classe)
+            .filter(Classe.user_id == current_user.id)
+        )
 
         if classe_id and classe_id != "undefined" and classe_id != "":
             avg_grade_val = avg_grade_val.filter(Classe.id == classe_id)
@@ -370,20 +412,26 @@ async def get_teacher_stats(
         #  DYNAMIC CHARTS & TRENDS LOGIC
         # ---------------------------------------------------------
         today = datetime.now()
-        
+
         last_7_days = [(today - timedelta(days=i)).date() for i in range(6, -1, -1)]
         prev_7_days = [(today - timedelta(days=i)).date() for i in range(13, 6, -1)]
-        
-        labels = [d.strftime('%a') for d in last_7_days]
-        
+
+        labels = [d.strftime("%a") for d in last_7_days]
+
         fourteen_days_ago = today - timedelta(days=14)
-        query_activities = session.query(StudentActivity).join(Classe).filter(
-            Classe.user_id == current_user.id,
-            StudentActivity.created_at >= fourteen_days_ago
+        query_activities = (
+            session.query(StudentActivity)
+            .join(Classe)
+            .filter(
+                Classe.user_id == current_user.id,
+                StudentActivity.created_at >= fourteen_days_ago,
+            )
         )
-        
+
         if classe_id and classe_id != "undefined" and classe_id != "":
-            query_activities = query_activities.filter(StudentActivity.classe_id == classe_id)
+            query_activities = query_activities.filter(
+                StudentActivity.classe_id == classe_id
+            )
 
         activities = query_activities.all()
 
@@ -414,28 +462,28 @@ async def get_teacher_stats(
 
         active_trend = calc_trend(current_active_total, prev_active_total)
         eng_trend = calc_trend(current_eng_total, prev_engagement)
-        
-        success_trend = 0.0 if success_rate == 0 else round(success_rate * 0.05, 1) 
+
+        success_trend = 0.0 if success_rate == 0 else round(success_rate * 0.05, 1)
 
         return {
             "stats": {
                 "activeStudents": int(total_students),
                 "successRate": round(float(success_rate), 1),
                 "aiResponseRate": 0,
-                "engagement": engagement_score
+                "engagement": engagement_score,
             },
             "trends": {
                 "activeStudents": active_trend,
                 "successRate": success_trend,
                 "aiResponseRate": 0,
-                "engagement": eng_trend
+                "engagement": eng_trend,
             },
             "charts": {
                 "labels": labels,
                 "weeklyActive": weekly_active,
-                "previousWeekly": previous_weekly, 
-                "engagementTrend": engagement_trend
-            }
+                "previousWeekly": previous_weekly,
+                "engagementTrend": engagement_trend,
+            },
         }
     except Exception as e:
         log.error(f"Backend Error: {str(e)}")

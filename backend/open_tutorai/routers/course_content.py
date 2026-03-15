@@ -15,6 +15,7 @@ log.setLevel("INFO")
 
 router = APIRouter()
 
+
 # -------- Pydantic Models --------
 class CourseCreateRequest(BaseModel):
     title: str
@@ -44,14 +45,15 @@ def get_db_session():
 
 # -------- Create Course --------
 @router.post("/create", response_model=CourseResponse)
-async def create_course(data: CourseCreateRequest,user=Depends(get_current_user)):
+async def create_course(data: CourseCreateRequest, user=Depends(get_current_user)):
     session = get_db_session()
 
     try:
-        classe = session.query(Classe).filter(
-            Classe.id == data.classe_id,
-            Classe.user_id == user.id
-        ).first()
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == data.classe_id, Classe.user_id == user.id)
+            .first()
+        )
 
         if not classe:
             raise HTTPException(status_code=404, detail="Classe not found")
@@ -65,7 +67,7 @@ async def create_course(data: CourseCreateRequest,user=Depends(get_current_user)
             type=data.type,
             classe_id=data.classe_id,
             user_id=user.id,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         session.add(new_course)
@@ -87,21 +89,25 @@ async def create_course(data: CourseCreateRequest,user=Depends(get_current_user)
 
 # -------- Get Courses By Classe --------
 @router.get("/classe/{classe_id}", response_model=List[CourseResponse])
-async def get_courses_by_class(classe_id: str,user=Depends(get_current_user)):
+async def get_courses_by_class(classe_id: str, user=Depends(get_current_user)):
 
     session = get_db_session()
     try:
-        classe = session.query(Classe).filter(
-            Classe.id == classe_id,
-            Classe.user_id == user.id
-        ).first()
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == classe_id, Classe.user_id == user.id)
+            .first()
+        )
 
         if not classe:
             raise HTTPException(status_code=404, detail="Classe not found")
 
-        courses = session.query(CourseContent).filter(
-            CourseContent.classe_id == classe_id
-        ).order_by(CourseContent.created_at.desc()).all()
+        courses = (
+            session.query(CourseContent)
+            .filter(CourseContent.classe_id == classe_id)
+            .order_by(CourseContent.created_at.desc())
+            .all()
+        )
 
         return courses
 
@@ -115,10 +121,11 @@ async def get_course_by_id(course_id: str, user=Depends(get_current_user)):
 
     session = get_db_session()
     try:
-        course = session.query(CourseContent).filter(
-            CourseContent.id == course_id,
-            CourseContent.user_id == user.id
-        ).first()
+        course = (
+            session.query(CourseContent)
+            .filter(CourseContent.id == course_id, CourseContent.user_id == user.id)
+            .first()
+        )
 
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
@@ -127,6 +134,7 @@ async def get_course_by_id(course_id: str, user=Depends(get_current_user)):
     finally:
         session.close()
 
+
 # -------- Delete Course --------
 @router.delete("/{course_id}")
 async def delete_course(course_id: str, user=Depends(get_current_user)):
@@ -134,10 +142,11 @@ async def delete_course(course_id: str, user=Depends(get_current_user)):
     session = get_db_session()
     try:
 
-        course = session.query(CourseContent).filter(
-            CourseContent.id == course_id,
-            CourseContent.user_id == user.id
-        ).first()
+        course = (
+            session.query(CourseContent)
+            .filter(CourseContent.id == course_id, CourseContent.user_id == user.id)
+            .first()
+        )
 
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
@@ -155,34 +164,36 @@ async def delete_course(course_id: str, user=Depends(get_current_user)):
         session.delete(course)
         session.commit()
 
-        return {
-            "status": "success",
-            "message": "Course and files deleted"
-        }
+        return {"status": "success", "message": "Course and files deleted"}
 
     finally:
         session.close()
 
+
 # -------- Get Class Content --------
 @router.get("/classe/{classe_id}/content")
-async def get_class_content(classe_id: str,user=Depends(get_current_user)):
+async def get_class_content(classe_id: str, user=Depends(get_current_user)):
 
     session = get_db_session()
 
     try:
 
-        classe = session.query(Classe).filter(
-            Classe.id == classe_id,
-            Classe.user_id == user.id
-        ).first()
+        classe = (
+            session.query(Classe)
+            .filter(Classe.id == classe_id, Classe.user_id == user.id)
+            .first()
+        )
 
         if not classe:
             raise HTTPException(status_code=404, detail="Classe not found")
 
         # get all course contents
-        contents = session.query(CourseContent).filter(
-            CourseContent.classe_id == classe_id
-        ).order_by(CourseContent.created_at.desc()).all()
+        contents = (
+            session.query(CourseContent)
+            .filter(CourseContent.classe_id == classe_id)
+            .order_by(CourseContent.created_at.desc())
+            .all()
+        )
 
         courses = []
         tds = []
@@ -192,7 +203,7 @@ async def get_class_content(classe_id: str,user=Depends(get_current_user)):
         for c in contents:
 
             file = c.files[0] if len(c.files) > 0 else None
-            
+
             item = {
                 "id": c.id,
                 "title": c.title,
@@ -201,8 +212,8 @@ async def get_class_content(classe_id: str,user=Depends(get_current_user)):
                 "date": c.created_at,
                 "file": {
                     "url": file.file_path if file else None,
-                    "name": file.filename if file else None
-                }
+                    "name": file.filename if file else None,
+                },
             }
 
             if c.type == "course":
@@ -217,12 +228,7 @@ async def get_class_content(classe_id: str,user=Depends(get_current_user)):
             elif c.type == "exam":
                 exams.append(item)
 
-        return {
-            "courses": courses,
-            "tds": tds,
-            "tps": tps,
-            "exams": exams
-        }
+        return {"courses": courses, "tds": tds, "tps": tps, "exams": exams}
 
     finally:
         session.close()

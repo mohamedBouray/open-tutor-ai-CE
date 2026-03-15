@@ -16,6 +16,7 @@ log.setLevel("INFO")
 
 router = APIRouter()
 
+
 # --- Pydantic Models ---
 class AssignmentCreateRequest(BaseModel):
     title: str
@@ -24,9 +25,10 @@ class AssignmentCreateRequest(BaseModel):
     deadline: datetime
     points: int
 
+
 class AssignmentResponse(BaseModel):
     id: str
-    title: str 
+    title: str
     description: str
     classe_id: str
     classe_name: str
@@ -36,6 +38,7 @@ class AssignmentResponse(BaseModel):
     status: str
     max_submissions: int
     current_submissions: int
+
     class Config:
         from_attributes = True
 
@@ -44,36 +47,46 @@ def get_db_session():
     Session = sessionmaker(bind=engine)
     return Session()
 
+
 # --- Helper Functions ---
 def sync_assignment_status(session, assignment):
     """Sync the status of an assignment based on current time, deadline, and submission counts."""
-    
+
     now = datetime.now()
     new_status = "Active"
 
-    if assignment.max_submissions > 0 and assignment.current_submissions >= assignment.max_submissions:
+    if (
+        assignment.max_submissions > 0
+        and assignment.current_submissions >= assignment.max_submissions
+    ):
         new_status = "Completed"
     elif assignment.deadline and now > assignment.deadline:
         new_status = "Pending"
     else:
         new_status = "Active"
-    
+
     if assignment.status != new_status:
         assignment.status = new_status
-        session.add(assignment) 
+        session.add(assignment)
     return new_status
+
 
 # --- Routes ---
 # Create, List, Update, Delete Assignments and Get Stats
 
+
 # create assignment
 @router.post("/create", response_model=AssignmentResponse)
-async def create_assignment(assignment_data: AssignmentCreateRequest, user=Depends(get_current_user)):
+async def create_assignment(
+    assignment_data: AssignmentCreateRequest, user=Depends(get_current_user)
+):
     """Create a new assignment for a class."""
     session = get_db_session()
     try:
         assignment_id = str(uuid.uuid4())
-        classe = session.query(Classe).filter(Classe.id == assignment_data.classe_id).first()
+        classe = (
+            session.query(Classe).filter(Classe.id == assignment_data.classe_id).first()
+        )
         student_total = classe.student_count if (classe and classe.student_count) else 0
 
         new_assignment = Assignment(
@@ -85,11 +98,11 @@ async def create_assignment(assignment_data: AssignmentCreateRequest, user=Depen
             points=assignment_data.points,
             deadline=assignment_data.deadline,
             created_at=datetime.now(),
-            max_submissions=student_total, 
+            max_submissions=student_total,
             current_submissions=0,
-            status="Active"
+            status="Active",
         )
-        
+
         session.add(new_assignment)
         session.commit()
         session.refresh(new_assignment)
@@ -104,7 +117,7 @@ async def create_assignment(assignment_data: AssignmentCreateRequest, user=Depen
             "points": new_assignment.points,
             "status": new_assignment.status,
             "max_submissions": new_assignment.max_submissions,
-            "current_submissions": new_assignment.current_submissions
+            "current_submissions": new_assignment.current_submissions,
         }
         return response_data
     except Exception as e:
@@ -114,29 +127,23 @@ async def create_assignment(assignment_data: AssignmentCreateRequest, user=Depen
         session.close()
 
 
-# get all assignments 
+# get all assignments
 @router.get("/all", response_model=List[AssignmentResponse])
 async def list_Assignment(user=Depends(get_current_user)):
     """List all assignments for the current user, sorted by status and creation date."""
     session = get_db_session()
     try:
         status_priority = case(
-            {
-                "Active": 1,
-                "Pending": 2,
-                "Completed": 3
-            },
-            value=Assignment.status
+            {"Active": 1, "Pending": 2, "Completed": 3}, value=Assignment.status
         )
-        results = session.query(Assignment, Classe.name.label("classe_name")).join(
-            Classe, Assignment.classe_id == Classe.id
-        ).filter(
-            Assignment.user_id == user.id
-        ).order_by(
-            status_priority.asc(),        
-            Assignment.created_at.desc()   
-        ).all()
-        
+        results = (
+            session.query(Assignment, Classe.name.label("classe_name"))
+            .join(Classe, Assignment.classe_id == Classe.id)
+            .filter(Assignment.user_id == user.id)
+            .order_by(status_priority.asc(), Assignment.created_at.desc())
+            .all()
+        )
+
         assignments_data = []
         for assign, c_name in results:
             sync_assignment_status(session, assign)
@@ -151,7 +158,7 @@ async def list_Assignment(user=Depends(get_current_user)):
                 "points": assign.points,
                 "status": assign.status,
                 "max_submissions": assign.max_submissions,
-                "current_submissions": assign.current_submissions
+                "current_submissions": assign.current_submissions,
             }
             assignments_data.append(d)
         session.commit()
@@ -169,10 +176,10 @@ async def get_assignment_stats(user=Depends(get_current_user)):
     """Get statistics about the user's assignments, including counts by status and submission rates."""
     session = get_db_session()
     try:
-        all_assignments = session.query(Assignment).filter(
-            Assignment.user_id == user.id
-        ).all()
-        
+        all_assignments = (
+            session.query(Assignment).filter(Assignment.user_id == user.id).all()
+        )
+
         for a in all_assignments:
             sync_assignment_status(session, a)
         session.commit()
@@ -201,26 +208,24 @@ async def get_assignment_stats(user=Depends(get_current_user)):
         new_this_week = len([a for a in all_assignments if a.created_at >= last_week])
 
         now = datetime.now()
-        overdue_count = len([
-            a for a in all_assignments 
-            if a.status == "Pending" and a.deadline < now
-        ])
+        overdue_count = len(
+            [a for a in all_assignments if a.status == "Pending" and a.deadline < now]
+        )
         completion_change = "+2% this week" if completion_rate > 0 else "No change"
 
         return {
             "total": total,
             "total_change": f"+{new_this_week} this week",
-
             "avg_rate": f"{avg_rate}%",
-            "avg_rate_change": "+2% trend" if avg_rate > 0 else "0%", 
-
+            "avg_rate_change": "+2% trend" if avg_rate > 0 else "0%",
             "pending": pending_count,
-            "pending_change": f"{overdue_count} overdue" if overdue_count > 0 else "All caught up",
-
+            "pending_change": (
+                f"{overdue_count} overdue" if overdue_count > 0 else "All caught up"
+            ),
             "completion": f"{completion_rate}%",
             "completion_change": completion_change,
         }
-        
+
     except Exception as e:
         log.error(f"Error in stats: {str(e)}")
         raise HTTPException(status_code=500, detail="Could not calculate stats")
@@ -230,14 +235,19 @@ async def get_assignment_stats(user=Depends(get_current_user)):
 
 # update assignment
 @router.patch("/{assignment_id}", response_model=AssignmentResponse)
-async def update_assignment(assignment_id: str, assignment_data: AssignmentCreateRequest, user=Depends(get_current_user)):
+async def update_assignment(
+    assignment_id: str,
+    assignment_data: AssignmentCreateRequest,
+    user=Depends(get_current_user),
+):
     """Update an existing assignment."""
     session = get_db_session()
     try:
-        assignment = session.query(Assignment).filter(
-            Assignment.id == assignment_id, 
-            Assignment.user_id == user.id
-        ).first()
+        assignment = (
+            session.query(Assignment)
+            .filter(Assignment.id == assignment_id, Assignment.user_id == user.id)
+            .first()
+        )
 
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
@@ -246,16 +256,16 @@ async def update_assignment(assignment_id: str, assignment_data: AssignmentCreat
         assignment.description = assignment_data.description
         assignment.deadline = assignment_data.deadline
         assignment.points = assignment_data.points
-        assignment.classe_id = assignment_data.classe_id 
+        assignment.classe_id = assignment_data.classe_id
 
         session.commit()
         session.refresh(assignment)
 
         classe = session.query(Classe).filter(Classe.id == assignment.classe_id).first()
-        
+
         return {
             **assignment.__dict__,
-            "classe_name": classe.name if classe else "Unknown Class"
+            "classe_name": classe.name if classe else "Unknown Class",
         }
     except Exception as e:
         session.rollback()
@@ -271,10 +281,11 @@ async def delete_assignment(assignment_id: str, user=Depends(get_current_user)):
     """Delete an existing assignment."""
     session = get_db_session()
     try:
-        assignment = session.query(Assignment).filter(
-            Assignment.id == assignment_id, 
-            Assignment.user_id == user.id
-        ).first()
+        assignment = (
+            session.query(Assignment)
+            .filter(Assignment.id == assignment_id, Assignment.user_id == user.id)
+            .first()
+        )
         if not assignment:
             raise HTTPException(status_code=404, detail="Not found")
         session.delete(assignment)

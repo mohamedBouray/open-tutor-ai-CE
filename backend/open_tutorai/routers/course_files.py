@@ -9,7 +9,7 @@ from datetime import datetime
 
 from open_webui.utils.auth import get_current_user
 from open_webui.internal.db import engine
-from open_tutorai.models.database import CourseFile, Classe , CourseContent
+from open_tutorai.models.database import CourseFile, Classe, CourseContent
 from sqlalchemy.orm import sessionmaker
 
 log = logging.getLogger(__name__)
@@ -19,21 +19,13 @@ router = APIRouter()
 
 BASE_UPLOAD_DIR = "data/uploads/classes"
 
-ALLOWED_FILES = [
-    "pdf",
-    "doc",
-    "docx",
-    "ppt",
-    "pptx",
-    "xls",
-    "xlsx",
-    "zip"
-]
+ALLOWED_FILES = ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "zip"]
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 # -------- Response Model --------
+
 
 class CourseFileResponse(BaseModel):
     id: str
@@ -49,12 +41,14 @@ class CourseFileResponse(BaseModel):
 
 # -------- Database Session --------
 
+
 def get_db_session():
     Session = sessionmaker(bind=engine)
     return Session()
 
 
 # -------- Create Class Folder Structure --------
+
 
 def create_class_folders(class_id: str):
 
@@ -71,7 +65,12 @@ def create_class_folders(class_id: str):
 
 # -------- Upload File --------
 @router.post("/upload/{course_id}/{section}", response_model=CourseFileResponse)
-async def upload_file(course_id: str, section: str, file: UploadFile = File(...), user=Depends(get_current_user)):
+async def upload_file(
+    course_id: str,
+    section: str,
+    file: UploadFile = File(...),
+    user=Depends(get_current_user),
+):
 
     session = get_db_session()
     try:
@@ -95,10 +94,11 @@ async def upload_file(course_id: str, section: str, file: UploadFile = File(...)
         await file.seek(0)
 
         # get course
-        course = session.query(CourseContent).filter(
-            CourseContent.id == course_id,
-            CourseContent.user_id == user.id
-        ).first()
+        course = (
+            session.query(CourseContent)
+            .filter(CourseContent.id == course_id, CourseContent.user_id == user.id)
+            .first()
+        )
 
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
@@ -116,10 +116,7 @@ async def upload_file(course_id: str, section: str, file: UploadFile = File(...)
 
         # path on disk
         upload_path = os.path.join(
-            BASE_UPLOAD_DIR,
-            class_id,
-            section,
-            f"{file_id}_{safe_filename}"
+            BASE_UPLOAD_DIR, class_id, section, f"{file_id}_{safe_filename}"
         )
 
         # save file
@@ -132,12 +129,12 @@ async def upload_file(course_id: str, section: str, file: UploadFile = File(...)
         # create DB record
         new_file = CourseFile(
             id=file_id,
-            course_id=course_id,   
+            course_id=course_id,
             filename=safe_filename,
             file_path=db_path,
             file_type=ext,
             file_size=len(contents),
-            uploaded_at=datetime.now()
+            uploaded_at=datetime.now(),
         )
 
         session.add(new_file)
@@ -150,7 +147,6 @@ async def upload_file(course_id: str, section: str, file: UploadFile = File(...)
         session.close()
 
 
-
 # -------- Get Files --------
 @router.get("/course/{course_id}", response_model=List[CourseFileResponse])
 async def get_course_files(course_id: str, user=Depends(get_current_user)):
@@ -159,23 +155,26 @@ async def get_course_files(course_id: str, user=Depends(get_current_user)):
 
     try:
 
-        course = session.query(CourseContent).filter(
-            CourseContent.id == course_id,
-            CourseContent.user_id == user.id
-        ).first()
+        course = (
+            session.query(CourseContent)
+            .filter(CourseContent.id == course_id, CourseContent.user_id == user.id)
+            .first()
+        )
 
         if not course:
             raise HTTPException(status_code=404, detail="Course not found")
 
-        files = session.query(CourseFile).filter(
-            CourseFile.course_id == course_id
-        ).order_by(CourseFile.uploaded_at.desc()).all()
+        files = (
+            session.query(CourseFile)
+            .filter(CourseFile.course_id == course_id)
+            .order_by(CourseFile.uploaded_at.desc())
+            .all()
+        )
 
         return files
 
     finally:
         session.close()
-
 
 
 # -------- Delete File --------
@@ -186,9 +185,7 @@ async def delete_file(file_id: str, user=Depends(get_current_user)):
 
     try:
 
-        file = session.query(CourseFile).filter(
-            CourseFile.id == file_id
-        ).first()
+        file = session.query(CourseFile).filter(CourseFile.id == file_id).first()
 
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
@@ -203,10 +200,7 @@ async def delete_file(file_id: str, user=Depends(get_current_user)):
         session.delete(file)
         session.commit()
 
-        return {
-            "status": "success",
-            "message": "File deleted"
-        }
+        return {"status": "success", "message": "File deleted"}
 
     finally:
         session.close()
