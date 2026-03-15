@@ -8,7 +8,6 @@ export interface AssignmentCreateRequest {
     deadline: Date
     points: number
 }
-
 export interface AssignmentResponse {
     id: string
     title: string
@@ -25,7 +24,10 @@ export interface AssignmentResponse {
     current_submissions: number
 }
 
-// --- API Functions ---
+
+// ========== API Functions ========
+
+// ---- create new assignment ----
 export const createNewAssignment = async (token: string, data: AssignmentCreateRequest): Promise<AssignmentResponse> => {
     let error = null;
 
@@ -52,6 +54,7 @@ export const createNewAssignment = async (token: string, data: AssignmentCreateR
     return res;
 };
 
+// --- get my assignment ---
 export const getMyAssignment = async (token: string): Promise<AssignmentResponse[]> => {
     let error = null;
 
@@ -76,6 +79,8 @@ export const getMyAssignment = async (token: string): Promise<AssignmentResponse
     return res;
 };
 
+
+// ---- update assignment ----
 export const updateAssignment = async (token: string, assignmentId: string, data: AssignmentCreateRequest): Promise<AssignmentResponse> => {
     let error = null;
     const res = await fetch(`${TUTOR_API_BASE_URL}/assignment/${assignmentId}`, {
@@ -101,6 +106,8 @@ export const updateAssignment = async (token: string, assignmentId: string, data
     return res;
 };
 
+
+// ---- delete assignment by id ----
 export const deleteAssignmentById = async (token: string, assignmentId: string) => {
     let error = null;
 
@@ -125,7 +132,7 @@ export const deleteAssignmentById = async (token: string, assignmentId: string) 
     return res;
 };
 
-
+// ---------------- Get Assignment Statistics ----------------
 export const getAssignmentStats = async (token: string) => {
     const res = await fetch(`${TUTOR_API_BASE_URL}/assignment/stats`, {
         method: 'GET',

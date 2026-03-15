@@ -44,10 +44,13 @@ def get_db_session():
     Session = sessionmaker(bind=engine)
     return Session()
 
+# --- Helper Functions ---
 def sync_assignment_status(session, assignment):
+    """Sync the status of an assignment based on current time, deadline, and submission counts."""
+    
     now = datetime.now()
     new_status = "Active"
-    
+
     if assignment.max_submissions > 0 and assignment.current_submissions >= assignment.max_submissions:
         new_status = "Completed"
     elif assignment.deadline and now > assignment.deadline:
@@ -61,8 +64,12 @@ def sync_assignment_status(session, assignment):
     return new_status
 
 # --- Routes ---
+# Create, List, Update, Delete Assignments and Get Stats
+
+# create assignment
 @router.post("/create", response_model=AssignmentResponse)
 async def create_assignment(assignment_data: AssignmentCreateRequest, user=Depends(get_current_user)):
+    """Create a new assignment for a class."""
     session = get_db_session()
     try:
         assignment_id = str(uuid.uuid4())
@@ -106,8 +113,11 @@ async def create_assignment(assignment_data: AssignmentCreateRequest, user=Depen
     finally:
         session.close()
 
+
+# get all assignments 
 @router.get("/all", response_model=List[AssignmentResponse])
 async def list_Assignment(user=Depends(get_current_user)):
+    """List all assignments for the current user, sorted by status and creation date."""
     session = get_db_session()
     try:
         status_priority = case(
@@ -118,7 +128,6 @@ async def list_Assignment(user=Depends(get_current_user)):
             },
             value=Assignment.status
         )
-
         results = session.query(Assignment, Classe.name.label("classe_name")).join(
             Classe, Assignment.classe_id == Classe.id
         ).filter(
@@ -153,8 +162,11 @@ async def list_Assignment(user=Depends(get_current_user)):
     finally:
         session.close()
 
+
+# get statistiques of assignments
 @router.get("/stats")
 async def get_assignment_stats(user=Depends(get_current_user)):
+    """Get statistics about the user's assignments, including counts by status and submission rates."""
     session = get_db_session()
     try:
         all_assignments = session.query(Assignment).filter(
@@ -166,14 +178,11 @@ async def get_assignment_stats(user=Depends(get_current_user)):
         session.commit()
 
         total = len(all_assignments)
-
         active_count = len([a for a in all_assignments if a.status == "Active"])
         pending_count = len([a for a in all_assignments if a.status == "Pending"])
         completed_count = len([a for a in all_assignments if a.status == "Completed"])
-        
         total_subs = sum([a.current_submissions for a in all_assignments])
         total_max = sum([a.max_submissions for a in all_assignments])
-        
 
         if total_max > 0:
             raw_avg_rate = (total_subs / total_max) * 100
@@ -218,8 +227,11 @@ async def get_assignment_stats(user=Depends(get_current_user)):
     finally:
         session.close()
 
+
+# update assignment
 @router.patch("/{assignment_id}", response_model=AssignmentResponse)
 async def update_assignment(assignment_id: str, assignment_data: AssignmentCreateRequest, user=Depends(get_current_user)):
+    """Update an existing assignment."""
     session = get_db_session()
     try:
         assignment = session.query(Assignment).filter(
@@ -252,8 +264,11 @@ async def update_assignment(assignment_id: str, assignment_data: AssignmentCreat
     finally:
         session.close()
 
+
+# delete assignment
 @router.delete("/{assignment_id}")
 async def delete_assignment(assignment_id: str, user=Depends(get_current_user)):
+    """Delete an existing assignment."""
     session = get_db_session()
     try:
         assignment = session.query(Assignment).filter(

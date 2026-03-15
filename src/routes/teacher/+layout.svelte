@@ -1,54 +1,59 @@
 <script lang="ts">
     import Sidebar from '$lib/components/teacher/element/Sidebar.svelte';
     import Header from '$lib/components/teacher/element/Header.svelte';
-	import { onMount } from 'svelte';
-    import {theme} from '$lib/stores';
-    import { get,writable,derived } from 'svelte/store';
+    import { onMount } from 'svelte';
+    import { theme, settings, models, isFullscreenAvatar } from '$lib/stores';
+    import { getModels } from '$lib/apis';
 
-    const isDarkMode = derived(theme, ($theme) => {
-		return (
-			$theme === 'dark' ||
-			($theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-		);
-	});
+    // Theme logic improved
+    $: if (typeof document !== 'undefined') {
+        const isDark = $theme === 'dark' || ($theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', isDark);
+    }
 
-    	let currentIsDarkMode = false;
-	isDarkMode.subscribe((value) => {
-		currentIsDarkMode = value;
-		document.documentElement.classList.toggle('dark', value);
-	});
-    	function toggleDarkMode(event: CustomEvent) {
-		const newTheme = event.detail.isDarkMode ? 'dark' : 'light';
-		theme.set(newTheme);
-		localStorage.setItem('theme', newTheme);
-	}
-
-
-    onMount(async()=>{
-        const currentTheme = get(theme);
-        const isDark =
-			currentTheme === 'dark' ||
-			(currentTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-		document.documentElement.classList.toggle('dark', isDark);
+    onMount(async () => {
+        try {
+            const modelList = await getModels(localStorage.token, $settings?.directConnections ?? null);
+            models.set(modelList);
+        } catch (e) {
+            console.error("Failed to load models", e);
+        }
     });
 </script>
-<div class="flex flex-row w-full h-screen m-auto">
-    <aside >
-        <Sidebar />
-    </aside>
-    <div class="flex-1 h-screen overflow-hidden w-full flex flex-col bg-[#f8fbff]">
-        <header>
-            <Header />
-        </header>
-        <main class="flex-1 overflow-y-auto p-[10px] dark:bg-black">
+
+<div class="flex flex-row w-full h-screen m-auto overflow-hidden bg-[#f8fbff] dark:bg-black transition-colors duration-300">
+
+    {#if !$isFullscreenAvatar}
+        <aside class="hidden md:block h-full shrink-0 border-r border-slate-200 dark:border-gray-800">
+            <Sidebar />
+        </aside>
+    {/if}
+
+    <div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {#if !$isFullscreenAvatar}
+            <header class="z-30 shrink-0">
+                <Header/>
+            </header>
+        {/if}
+
+        <main class=" overflow-y-auto relative p-3">
             <slot />
+
+            <div class="md:hidden">
+                <Sidebar />
+            </div>
         </main>
     </div>
 </div>
 
 <style>
-    :global(body) { margin: 0; padding: 0; overflow: hidden; }
+    :global(body) { 
+        margin: 0; 
+        padding: 0; 
+        overflow: hidden; 
+        font-family: 'Inter', sans-serif;
+    }
     :global(.dark) {
-		color-scheme: dark;
-	}
+        color-scheme: dark;
+    }
 </style>

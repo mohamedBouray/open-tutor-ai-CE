@@ -149,6 +149,7 @@ type OllamaModelDetails = {
 };
 
 type Settings = {
+	directConnections: null;
 	models?: string[];
 	conversationMode?: boolean;
 	speechAutoSend?: boolean;

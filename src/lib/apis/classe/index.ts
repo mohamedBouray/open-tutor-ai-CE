@@ -1,10 +1,10 @@
 import { TUTOR_API_BASE_URL } from '$lib/constants';
 
+// -------------------- Types --------------------
 export interface ClasseCreateRequest {
     name: string;
     course?: string;
 }
-
 export interface ClasseResponse {
     id: string;
     name: string;
@@ -14,13 +14,11 @@ export interface ClasseResponse {
     created_at: string;
     updated_at?: string;
 }
-
 export interface AddStudentRequest {
     name: string;
     email: string;
     classId: string;
 }
-
 export interface EnrollmentResponse {
     id: string;
     points: number;
@@ -32,8 +30,8 @@ export interface EnrollmentResponse {
     created_at: string;
 }
 
-// --- API Functions ---
-
+// ======= API Functions =======
+// ----- get all classes of the teacher -----
 export const getMyClasses = async (token: string): Promise<ClasseResponse[]> => {
     let error = null;
     const res = await fetch(`${TUTOR_API_BASE_URL}/classe/all`, {
@@ -58,6 +56,33 @@ export const getMyClasses = async (token: string): Promise<ClasseResponse[]> => 
     return res;
 };
 
+// ----- get class by id -----
+export const getClassById = async (token: string, classId: string): Promise<ClasseResponse> => {
+    let error = null;
+
+    const res = await fetch(`${TUTOR_API_BASE_URL}/classe/${classId}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    .then(async (res) => {
+        if (!res.ok) throw await res.json();
+        return res.json();
+    })
+    .catch((err) => {
+        error = err.detail || "Failed to fetch class";
+        console.error('Error fetching class:', err);
+        return null;
+    });
+
+    if (error) throw error;
+    return res;
+};
+
+// ---------------- create New Class ----------------
 export const createNewClass = async (token: string, data: ClasseCreateRequest): Promise<ClasseResponse> => {
     let error = null;
 
@@ -84,10 +109,9 @@ export const createNewClass = async (token: string, data: ClasseCreateRequest): 
     return res;
 };
 
+// ---------------- Update Class ----------------
 export const updateClass = async (token: string, classId: string, data: ClasseCreateRequest): Promise<ClasseResponse> => {
     let error = null;
-
-    // We use PATCH to match the backend logic or PUT if you prefer full replacement
     const res = await fetch(`${TUTOR_API_BASE_URL}/classe/${classId}`, {
         method: 'PATCH', 
         headers: {
@@ -111,6 +135,7 @@ export const updateClass = async (token: string, classId: string, data: ClasseCr
     return res;
 };
 
+// ---------------- Delete Class ----------------
 export const deleteClassById = async (token: string, classId: string) => {
     let error = null;
 
@@ -135,7 +160,8 @@ export const deleteClassById = async (token: string, classId: string) => {
     return res;
 };
 
-
+// ================= Enrollment Management =================
+// ---------------- Add Student to Class ----------------
 export const addStudentToClass = async (token: string, data: AddStudentRequest) => {
     const res = await fetch(`${TUTOR_API_BASE_URL}/classe/add-student`, {
         method: 'POST',
@@ -153,6 +179,7 @@ export const addStudentToClass = async (token: string, data: AddStudentRequest) 
     return res.json();
 };
 
+// ------ get students by class id ------------
 export const getStudentsByClassId = async (token: string, classId: string) => {
     const res = await fetch(`${TUTOR_API_BASE_URL}/classe/${classId}/students`, {
         method: 'GET',
@@ -164,4 +191,50 @@ export const getStudentsByClassId = async (token: string, classId: string) => {
     
     if (!res.ok) throw await res.json();
     return await res.json();
+};
+
+// ---------------- Update Student Grade ----------------
+export const updateStudentGrade = async (token: string, classId: string, userId: string, data: { grade: number, notes: string }) => {
+    const res = await fetch(`${TUTOR_API_BASE_URL}/classe/${classId}/students/${userId}/grade`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) throw await res.json();
+    return res.json();
+};
+
+// ---------------- Remove Student from Class ----------------
+
+
+
+
+
+
+// ================= Dashboard Statistics =================
+// ----------------- Get Teacher Statistics ----------------
+export const getTeacherStats = async (token: string, classId?: string) => {
+    // Ila kan classId khawi, ghadi njibo stats dial kolchi
+    const url = classId 
+        ? `${TUTOR_API_BASE_URL}/classe/teacher/statistics?classe_id=${classId}`
+        : `${TUTOR_API_BASE_URL}/classe/teacher/statistics`;
+
+    const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+    });
+
+    if (!res.ok) {
+        const error = await res.json();
+        throw error.detail || "Failed to fetch dashboard statistics";
+    }
+
+    return res.json();
 };

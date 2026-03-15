@@ -2,9 +2,9 @@
     import { user, theme } from '$lib/stores'; 
     import { createEventDispatcher, getContext, onMount } from 'svelte';
     import { generateInitialsImage } from '$lib/utils';
-	import type { Writable } from 'svelte/store';
+    import type { Writable } from 'svelte/store';
 
-    interface I18n { t: (key: string) => string; }
+    interface I18n { t: (key: string) => string; locale: string; }
     const i18n = getContext<Writable<I18n>>('i18n');
 
     const dispatch = createEventDispatcher();
@@ -15,6 +15,7 @@
     let notificationRef: HTMLDivElement;
 
     $: profileImageUrl = $user?.profile_image_url || generateInitialsImage($user?.name || 'User');
+    $: isRTL = $i18n.locale === 'ar';
 
     function toggleNotificationPanel() {
         showNotifications = !showNotifications;
@@ -30,7 +31,6 @@
         showUserDropdown = false;
         showNotifications = false;
     }
-
 
     // === Logic Theme ====
     function applyTheme(currentTheme: string) {
@@ -56,9 +56,6 @@
 
     $: if ($theme) { applyTheme($theme);}
 
-
-
-
     onMount(() => {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         const handleSystemThemeChange = () => { if ($theme === 'system') applyTheme('system'); };
@@ -79,68 +76,69 @@
     });
 </script>
 
-
-
-<div class="flex flex-wrap items-center justify-between gap-5 p-5 header transition-colors duration-200 dark:bg-gray-950">
-
-    <div class="m-0 p-0">
-        <div class="flex flex-row items-center">
-            <h2 class="m-0 p-0 text-2xl font-light dark:text-white">
-                {$i18n.t("Hello")}, {$user?.name?.split(' ')[0]}!
-            </h2>
-            <img src="/teacher/emoji.png" alt="emoji" class="ml-2 h-6 w-6">  
+<div class="flex flex-row items-center gap-4 p-4 header transition-colors duration-200 bg-white dark:bg-gray-950 w-full" dir={isRTL ? 'rtl' : 'ltr'}>
+    
+    <div class="m-0 p-0 hidden md:block flex-shrink-0">
+        <div class="flex flex-col">
+            <div class="flex items-center">
+                <h2 class="m-0 p-0 text-2xl font-light dark:text-white">
+                    {$i18n.t("Hello")}, <span>{$user?.name?.split(' ')[0]}</span>!
+                </h2>
+                <img src="/teacher/emoji.png" alt="emoji" class="{isRTL ? 'mr-2' : 'ml-2'} h-6 w-6"> 
+            </div>
+            <p class="text-xs text-slate-500 dark:text-gray-400 mt-1 font-medium tracking-wide">
+                {$i18n.t("Manage your classes and track student progress.")}
+            </p>
         </div>
     </div>
 
-    <!-- BARRES Icons  -->
-    <div class="flex h-[51px] w-full max-w-[400px] items-center justify-between rounded-[30px] bg-white px-4 shadow-md sm:w-[350px] dark:bg-gray-900 dark:shadow-none dark:border dark:border-gray-800">
-        <!-- Search -->
-        <div class="flex min-w-[150px] flex-1 items-center gap-2.5 rounded-2xl px-4 py-1">
+    <div class="flex h-[51px] flex-1 md:flex-none md:w-[400px] {isRTL ? 'md:mr-auto' : 'md:ml-auto'} items-center justify-between rounded-[30px] bg-white px-4 shadow-md dark:bg-gray-900 dark:shadow-none dark:border dark:border-gray-800">
+        
+        <div class="flex min-w-[80px] flex-1 items-center gap-2.5 rounded-2xl px-1 sm:px-4 py-1">
             <img src="/teacher/recherche.svg" alt="Rechercher" class="h-[18px] w-[18px] cursor-pointer rounded-full dark:invert-[0.8]">
-            <input type="text" class="w-full border-none bg-transparent text-[13px] focus:outline-none dark:text-white dark:placeholder-gray-500" placeholder="{$i18n.t("Search")}"
+            <input type="text" class="w-full border-none bg-transparent text-[13px] focus:outline-none dark:text-white dark:placeholder-gray-500" 
+                placeholder="{$i18n.t("Search")}"
                 on:click|stopPropagation={() => {showUserDropdown = false; showNotifications = false;}}>
         </div>
 
-        <div class="action-buttons flex items-center gap-2">
+        <div class="action-buttons flex items-center gap-1 sm:gap-2">
         
-            <!-- Notification  -->
             <div class="relative flex items-center" bind:this={notificationRef}>
                 <button class="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-gray-100 dark:hover:bg-gray-800" 
                     on:click|stopPropagation={toggleNotificationPanel}
                     aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ''}`}>
                         <img src="/teacher/notifications_none.png" alt="Notifications" class="h-5 w-5 dark:invert">
                         {#if notificationCount > 0}
-                            <span class="absolute -right-1 -top-1 flex min-w-[16px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-bold text-white dark:border-gray-900">
+                            <span class="absolute {isRTL ? '-left-1' : '-right-1'} -top-1 flex min-w-[16px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-bold text-white dark:border-gray-900">
                                 {notificationCount}
                             </span>
                         {/if}
                 </button>
 
                 {#if showNotifications}
-                    <div class="absolute right-0 top-[calc(100%+12px)] z-[100] w-[280px] overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl animate-in fade-in slide-in-from-top-2 dark:border-gray-800 dark:bg-gray-900">
+                    <div class="absolute {isRTL ? 'left-0' : 'right-0'} top-[calc(100%+12px)] z-[100] w-[280px] overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl animate-in fade-in slide-in-from-top-2 dark:border-gray-800 dark:bg-gray-900">
                         <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/50">
                             <h3 class="m-0 text-sm font-semibold text-slate-800 dark:text-gray-200">
-                                Notifications</h3>
+                                {$i18n.t("Notifications")}</h3>
                             {#if notificationCount > 0}
                                 <button class="rounded px-2 py-1 text-[11px] text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20" 
                                 on:click={() => (notificationCount = 0)}>
-                                    Mark all as read
+                                    {$i18n.t("Mark all as read")}
                                 </button>
                             {/if}
                         </div>
                         <div class="flex max-h-[250px] flex-col gap-1 overflow-y-auto p-2">
-                            <div class="py-5 text-center text-sm text-slate-400 dark:text-gray-500">No new notifications</div>
+                            <div class="py-5 text-center text-sm text-slate-400 dark:text-gray-500">{$i18n.t("No new notifications")}</div>
                         </div>
                         <div class="border-t border-slate-100 p-2 text-center dark:border-gray-800">
                             <button class="w-full rounded-md bg-slate-50 py-2 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-blue-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-blue-400">
-                                View all notifications
+                                {$i18n.t("View all notifications")}
                             </button>
                         </div>
                     </div>
                 {/if}
             </div>
 
-            <!-- Theme -->
             <div class="relative flex items-center">
                 <button class="relative flex h-9 w-9 items-center justify-center rounded-full transition-all hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none active:scale-90"
                     on:click|stopPropagation={toggleTheme}>
@@ -156,20 +154,18 @@
                 </button>
             </div>
 
-            <!-- About / help -->
             <div>
                 <button class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
                     <img src="/teacher/info_outline.png" alt="Help" class="h-5 w-5 dark:invert">
                 </button>
             </div>
 
-            <!-- Profile / Setting -->
             <div class="relative flex items-center">
                 <button aria-label="User Profile" on:click|stopPropagation={showProfilePanel} class="flex items-center">
                     <img src={profileImageUrl} alt="UserAvatar" class="h-[35px] w-[35px] cursor-pointer rounded-full border-2 border-transparent transition-all hover:scale-105 hover:border-slate-200 dark:hover:border-gray-700">
                 </button>
                 {#if showUserDropdown}
-                    <div class="absolute right-0 top-[calc(100%+12px)] z-50 w-[220px] overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl animate-in fade-in slide-in-from-top-2 dark:border-gray-800 dark:bg-gray-900">
+                    <div class="absolute {isRTL ? 'left-0' : 'right-0'} top-[calc(100%+12px)] z-50 w-[220px] overflow-hidden rounded-xl border border-slate-100 bg-white shadow-xl animate-in fade-in slide-in-from-top-2 dark:border-gray-800 dark:bg-gray-900">
                         <div class="flex flex-col bg-slate-50 px-4 py-3 dark:bg-gray-800/50">
                             <span class="text-sm font-semibold text-slate-800 dark:text-gray-100">{$user?.name}</span>
                             <span class="text-xs text-slate-500 dark:text-gray-400">{$user?.email}</span>
@@ -180,14 +176,14 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px] text-slate-400 group-hover:text-blue-600 dark:text-gray-500 dark:group-hover:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                                 </svg>
-                                My Profile
+                                {$i18n.t("My Profile")}
                             </a>
                             <a href="/teacher/Setting" class="group flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-blue-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px] text-slate-400 group-hover:text-blue-600 dark:text-gray-500 dark:group-hover:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                 </svg>
-                                Account Settings
+                                {$i18n.t("Account Settings")}
                             </a>
                         </div>
 
@@ -199,7 +195,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-[18px] w-[18px] text-slate-400 group-hover:text-rose-600 dark:text-gray-500 dark:group-hover:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                                 </svg>
-                                Sign Out
+                                {$i18n.t("Sign Out")}
                             </button>
                         </div>
                     </div>

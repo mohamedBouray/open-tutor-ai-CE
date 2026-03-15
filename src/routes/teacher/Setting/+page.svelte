@@ -1,12 +1,11 @@
 <script lang="ts">
-    import { onMount , getContext} from 'svelte';
+    import { onMount, getContext } from 'svelte';
     import { toast } from 'svelte-sonner';
-    import { user ,theme  } from '$lib/stores'; 
+    import { user, theme } from '$lib/stores'; 
     import { getGravatarUrl } from '$lib/apis/utils';
     import { generateInitialsImage } from '$lib/utils';
-    import { updateUserPassword } from '$lib/apis/auths';
-    import { updateUserProfile, getSessionUser } from '$lib/apis/auths';
-    import {getLanguages} from '$lib/i18n';
+    import { updateUserPassword, updateUserProfile, getSessionUser } from '$lib/apis/auths';
+    import { getLanguages } from '$lib/i18n';
     
     import { type Writable } from 'svelte/store';
     import type { i18n as i18nType } from 'i18next';
@@ -25,18 +24,14 @@
 
     let i18n = getContext<Writable<i18nType>>('i18n'); 
     let languages: Awaited<ReturnType<typeof getLanguages>> = [];
-    let lang =$i18n.language;
+    let lang = $i18n.language;
 
-    let themes = ['system', 'dark', 'light'];
     let selectedTheme = 'light';
     
-
-// --- Upload Images ---
+    // --- Image Logic ---
     const handleImageChange = (e: Event) => {
         const files = profileImageInputElement.files;
-        if (!files || files.length === 0) 
-            return;
-
+        if (!files || files.length === 0) return;
         const reader = new FileReader();
         reader.onload = (event) => {
             const img = new Image();
@@ -44,13 +39,10 @@
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                canvas.width = 250;
-                canvas.height = 250;
-                
+                canvas.width = 250; canvas.height = 250;
                 const aspectRatio = img.width / img.height;
                 let newW = 250, newH = 250;
                 if (aspectRatio > 1) newH = 250 / aspectRatio; else newW = 250 * aspectRatio;
-
                 ctx?.drawImage(img, (250 - newW) / 2, (250 - newH) / 2, newW, newH);
                 profileImageUrl = canvas.toDataURL('image/jpeg', 0.8);
             };
@@ -58,71 +50,39 @@
         reader.readAsDataURL(files[0]);
     };
 
-
-//  --- Buttons Profil Actions ---
-    const setInitials = () => {
-        profileImageUrl = generateInitialsImage(name || $user?.name || '');
-    };
-
+    const setInitials = () => { profileImageUrl = generateInitialsImage(name || $user?.name || ''); };
     const setGravatar = async () => {
         try {
             const url = await getGravatarUrl(localStorage.token, $user?.email || '');
-            if (url) {
-                profileImageUrl = url;
-                toast.success("Gravatar profile image loaded!");
-            } else {
-                toast.error("No Gravatar found for this email.");
-            }
-        } catch (e) {
-            toast.error("Couldn't fetch Gravatar");
-        }
+            if (url) { profileImageUrl = url; toast.success("Gravatar loaded!"); }
+            else { toast.error("No Gravatar found."); }
+        } catch (e) { toast.error("Error fetching Gravatar"); }
     };
+    const removeImage = () => { profileImageUrl = '/user.png'; };
 
-    const removeImage = () => {
-        profileImageUrl = '/user.png';
-    };
-
-
-// ---Update password Section ---
+    // --- Password Action ---
     const updatePasswordHandler = async () => {
-        if (newPassword === newPasswordConfirm) {
-            const res = await updateUserPassword(localStorage.token, currentPassword, newPassword).catch(
-                (error) => {
-                    toast.error(`${error}`);
-                    return null;
-                }
-            );
+        if (newPassword !== newPasswordConfirm) {
+            toast.error("The passwords you entered don't match.");
+            return;
+        }
+        try {
+            const res = await updateUserPassword(localStorage.token, currentPassword, newPassword);
             if (res) {
-                toast.success('Successfully updated.');
+                toast.success('Password updated successfully.');
+                currentPassword = ''; newPassword = ''; newPasswordConfirm = '';
             }
-            currentPassword = '';
-            newPassword = '';
-            newPasswordConfirm = '';
-        } else {
-            toast.error(
-                `The passwords you entered don't quite match. Please double-check and try again.`
-            );
-            newPassword = '';
-            newPasswordConfirm = '';
+        } catch (error) {
+            toast.error(`${error}`);
         }
     };
 
-
-// --Change theme section ---
     const applyTheme = (_theme: string) => {
-        let themeToApply = _theme === 'oled-dark' ? 'dark' : _theme;
-
-        if (_theme === 'system') {
-            themeToApply = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
-
-        themes
-            .filter((e) => e !== themeToApply)
-            .forEach((e) => {
-                e.split(' ').forEach((cls) => document.documentElement.classList.remove(cls));
-            });
-
-        themeToApply.split(' ').forEach((cls) => document.documentElement.classList.add(cls));
+        let themeToApply = _theme === 'system' 
+            ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+            : _theme;
+        document.documentElement.classList.remove('light', 'dark');
+        document.documentElement.classList.add(themeToApply);
     };
 
     const themeChangeHandler = (_theme: string) => {
@@ -132,139 +92,102 @@
         selectedTheme = _theme;
     };
 
-
-
-
     const submitHandler = async () => {
-		if (name !== $user?.name) {
-			if (profileImageUrl === generateInitialsImage($user?.name) || profileImageUrl === '') {
-				profileImageUrl = generateInitialsImage(name);
-			}
-		}
+        if (name !== $user?.name && (profileImageUrl === generateInitialsImage($user?.name) || profileImageUrl === '')) {
+            profileImageUrl = generateInitialsImage(name);
+        }
+        const updatedUser = await updateUserProfile(localStorage.token, name, profileImageUrl).catch(e => toast.error(`${e}`));
+        if (updatedUser) {
+            const sessionUser = await getSessionUser(localStorage.token).catch(e => null);
+            await user.set(sessionUser);
+            return true;
+        }
+        return false;
+    };
 
-		const updatedUser = await updateUserProfile(localStorage.token, name, profileImageUrl).catch(
-			(error) => {
-				toast.error(`${error}`);
-			}
-		);
-
-		if (updatedUser) {
-			// Get Session User Info
-			const sessionUser = await getSessionUser(localStorage.token).catch((error) => {
-				toast.error(`${error}`);
-				return null;
-			});
-
-			await user.set(sessionUser);
-			return true;
-		}
-		return false;
-	};
-
-
-
-//  --- On Mount ---
-onMount(async() => {
-    name = $user?.name || '';
-    profileImageUrl = $user?.profile_image_url || '/user.png';
-
-    selectedTheme =localStorage.theme ?? 'system';
-    applyTheme(selectedTheme);
-
-    languages = await getLanguages();
-    lang = $i18n.language;
-});
+    onMount(async() => {
+        name = $user?.name || '';
+        profileImageUrl = $user?.profile_image_url || '/user.png';
+        selectedTheme = localStorage.theme ?? 'system';
+        applyTheme(selectedTheme);
+        languages = await getLanguages();
+        lang = $i18n.language;
+    });
 </script>
-<div class="flex flex-col bg-[#F8FAFC] dark:bg-gray-950 text-[#334155] dark:text-gray-200 p-[20px] font-sans w-full gap-[1.2rem] transition-colors duration-200">
 
-    <section class="flex gap-[2.3rem] bg-white dark:bg-gray-900 p-[1.5rem] rounded-[1.2rem] border border-[#e2e8f0] dark:border-gray-800 items-center">
+<div class="flex flex-col bg-[#F8FAFC] dark:bg-gray-950 text-[#334155] dark:text-gray-200 p-4 sm:p-6 font-sans w-full gap-5 transition-colors duration-200">
+
+    <section class="flex flex-col sm:flex-row gap-6 sm:gap-10 bg-white dark:bg-gray-900 p-5 sm:p-6 rounded-3xl border border-[#e2e8f0] dark:border-gray-800 items-center sm:items-start">
         <input type="file" hidden accept="image/*" bind:this={profileImageInputElement} on:change={handleImageChange} />
         
         <div class="relative flex-shrink-0">
-            <div class="w-[100px] h-[100px] rounded-full overflow-hidden border-[3px] border-[#4881db] bg-[#f1f5f9] dark:bg-gray-800">
+            <div class="w-24 h-24 sm:w-[100px] sm:h-[100px] rounded-full overflow-hidden border-[3px] border-blue-500 bg-[#f1f5f9] dark:bg-gray-800 shadow-sm">
                 <img src={profileImageUrl || '/user.png'} alt="Profile" class="w-full h-full object-cover"/>
             </div>
-            <button 
-                class="absolute bottom-[2px] right-[2px] bg-[#3B82F6] text-white border-2 border-white dark:border-gray-900 rounded-full p-[4px] cursor-pointer shadow-md transition-all duration-200 hover:bg-[#2563eb] hover:scale-110" 
-                type="button" 
-                on:click={() => profileImageInputElement.click()} 
-                title="Change Profile Picture">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
-                    <circle cx="12" cy="13" r="3"/>
+            <button class="absolute bottom-1 right-1 bg-blue-600 text-white border-2 border-white dark:border-gray-900 rounded-full p-2 shadow-lg hover:scale-110 active:scale-90 transition-all" type="button" on:click={() => profileImageInputElement.click()}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+                    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>
                 </svg>
             </button>
         </div>
 
-        <div class="flex-grow">
-            <h3 class="text-[14px] font-semibold text-[#5a6677] dark:text-gray-400 mb-2"> {$i18n.t('Profile Image')}</h3>
-            <div class="flex gap-2 mb-5 flex-wrap">
-                <button class="bg-[#f1f5f9] dark:bg-gray-800 border border-[#e2e8f0] dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs text-[#334155] dark:text-gray-300 cursor-pointer hover:bg-[#e2e8f0] dark:hover:bg-gray-700" type="button" on:click={setInitials}>{$i18n.t('Use Initials')}</button>
-                <button class="bg-[#f1f5f9] dark:bg-gray-800 border border-[#e2e8f0] dark:border-gray-700 px-3 py-1.5 rounded-lg text-xs text-[#334155] dark:text-gray-300 cursor-pointer hover:bg-[#e2e8f0] dark:hover:bg-gray-700" type="button" on:click={setGravatar}>{$i18n.t('Use Gravatar')}</button>
-                <button class="bg-[#fff1f2] dark:bg-red-900/20 border border-[#fecaca] dark:border-red-900/30 px-3 py-1.5 rounded-lg text-xs text-[#ef4444] cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/40" type="button" on:click={removeImage}>{$i18n.t('Remove')}</button>
+        <div class="flex-grow w-full">
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 text-center sm:text-left">{$i18n.t('Profile Image')}</h3>
+            <div class="flex flex-wrap justify-center sm:justify-start gap-2 mb-6">
+                <button class="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all" type="button" on:click={setInitials}>{$i18n.t('Initials')}</button>
+                <button class="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-xl text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all" type="button" on:click={setGravatar}>{$i18n.t('Gravatar')}</button>
+                <button class="bg-red-50 dark:bg-red-900/20 text-red-600 px-4 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-all" type="button" on:click={removeImage}>{$i18n.t('Remove')}</button>
             </div>
 
-            <div class="mb-4 w-full">
-                <label class="block text-xs font-semibold text-[#5a6677] dark:text-gray-400 mb-1.5" for="fullname">{$i18n.t('Full Name')}</label>
-                <input id="fullname" type="text" class="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] dark:border-gray-700 bg-white dark:bg-gray-800 text-[#334155] dark:text-white outline-none focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6]" bind:value={name} required/>
+            <div class="w-full max-w-md mx-auto sm:mx-0">
+                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2" for="fullname">{$i18n.t('Full Name')}</label>
+                <input id="fullname" type="text" class="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" bind:value={name} required/>
             </div>
         </div>
     </section>
 
-    <section class="bg-white dark:bg-gray-900 p-6 pb-2.5 rounded-[1.2rem] border border-[#e2e8f0] dark:border-gray-800 transition-all">
-        <div class="flex justify-between items-center mb-4">
-            <div class="text-base font-semibold text-[#1e293b] dark:text-gray-100"> {$i18n.t('Change Password')}</div>
-            <button class="bg-none border-none text-[#3B82F6] text-sm cursor-pointer px-3 py-1.5 rounded-lg transition-colors duration-200 hover:bg-blue-50 dark:hover:bg-blue-900/20" type="button" on:click={() => {show = !show;}}>
-                {show ? '▲' :'▼'}
-            </button>
-        </div>
+    <section class="bg-white dark:bg-gray-900 p-5 sm:p-6 rounded-3xl border border-[#e2e8f0] dark:border-gray-800">
+        <button class="w-full flex justify-between items-center" type="button" on:click={() => {show = !show;}}>
+            <span class="text-base font-bold text-gray-900 dark:text-gray-100">{$i18n.t('Security & Password')}</span>
+            <span class="text-blue-600 bg-blue-50 dark:bg-gray-900 p-2 rounded-lg transition-transform" style="transform: rotate({show ? '180deg' : '0deg'})">▼</span>
+        </button>
 
         {#if show}
-            <div class="flex items-center gap-2.5 mb-6">
-                <span class="text-lg">🔒</span>
-                <h3 class="text-base m-0 text-[#1e293b] dark:text-gray-200">{$i18n.t('Security & Password')}</h3>
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="mb-4 w-full">
-                    <label class="block text-xs font-semibold text-[#5a6677] dark:text-gray-400 mb-1.5" for="">{$i18n.t('Current Password')}</label>
-                    <input type="password" placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] dark:border-gray-700 bg-white dark:bg-gray-800 text-[#334155] dark:text-white outline-none" bind:value={currentPassword} autocomplete="current-password" required/>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                <div class="w-full sm:col-span-2">
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest" for="Current password">{$i18n.t('Current Password')}</label>
+                    <input type="password" placeholder="••••••••" class="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" bind:value={currentPassword} />
                 </div>
-                <div class="mb-4 w-full">
-                    <label class="block text-xs font-semibold text-[#5a6677] dark:text-gray-400 mb-1.5" for=" ">{$i18n.t('New Password')}</label>
-                    <input type="password" placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] dark:border-gray-700 bg-white dark:bg-gray-800 text-[#334155] dark:text-white outline-none" bind:value={newPassword} autocomplete="new-password" required/>
+                <div class="w-full">
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest" for="new Password">{$i18n.t('New Password')}</label>
+                    <input type="password" placeholder="••••••••" class="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" bind:value={newPassword} />
                 </div>
-                <div class="mb-4 w-full md:col-span-2">
-                    <label class="block text-xs font-semibold text-[#5a6677] dark:text-gray-400 mb-1.5" for="">{$i18n.t('Confirm Password')}</label>
-                    <input type="password" placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-[#e2e8f0] dark:border-gray-700 bg-white dark:bg-gray-800 text-[#334155] dark:text-white outline-none" bind:value={newPasswordConfirm} autocomplete="off" required/>
+                <div class="w-full">
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-widest" for="Confirm">{$i18n.t('Confirm Password')}</label>
+                    <input type="password" placeholder="••••••••" class="w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800" bind:value={newPasswordConfirm} />
                 </div>
-            </div>
-            <div>
-                <button class="bg-[#3B82F6] text-white px-5 py-2.5 rounded-xl font-semibold border-none cursor-pointer mt-4 hover:bg-[#2563eb] transition-colors" on:click|stopPropagation={() => {updatePasswordHandler();}}>
-                    {$i18n.t('Update password')}
-                </button>
+                <div class="w-full sm:col-span-2">
+                    <button class="w-full sm:w-auto bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-700 active:scale-95 transition-all mt-2" on:click={updatePasswordHandler}>
+                        {$i18n.t('Update password')}
+                    </button>
+                </div>
             </div>
         {/if}
     </section>
 
-    <section class="flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-[130px] p-6 bg-white dark:bg-gray-900 rounded-[1.2rem] border border-[#e2e8f0] dark:border-gray-800">
-        <div class="flex flex-col gap-2 w-full md:w-auto">
-            <label class="text-sm font-medium text-black dark:text-gray-200" for="theme">{$i18n.t('Theme')} :</label>
-            <select id="theme" class="appearance-none bg-[#eef1f5] dark:bg-gray-800 border-none rounded-lg py-2.5 pl-3 pr-9 min-w-[220px] cursor-pointer outline-none dark:text-white custom-select-bg" bind:value={selectedTheme}
-                on:change={() => themeChangeHandler(selectedTheme)}>
-                    <option value="system">💻 {$i18n.t('System')}</option>
-                    <option value="dark">🌑 {$i18n.t('Dark')}</option>
-                    <option value="light">☀️ {$i18n.t('Light')}</option>
+    <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="bg-white dark:bg-gray-900 p-5 rounded-3xl border border-gray-100 dark:border-gray-800">
+            <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest" for="theme">{$i18n.t('Theme')}</label>
+            <select id="theme" class="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-xl py-3 px-4 font-semibold outline-none custom-select-bg" bind:value={selectedTheme} on:change={() => themeChangeHandler(selectedTheme)}>
+                <option value="system">💻 {$i18n.t('System')}</option>
+                <option value="dark">🌑 {$i18n.t('Dark')}</option>
+                <option value="light">☀️ {$i18n.t('Light')}</option>
             </select>
         </div>
 
-        <div class="flex flex-col gap-2 w-full md:w-auto">
-            <label class="text-sm font-medium text-black dark:text-gray-200" for="language">{$i18n.t('Language')}:</label>
-            <select id="language" class="appearance-none bg-[#eef1f5] dark:bg-gray-800 border-none rounded-lg py-2.5 pl-3 pr-9 min-w-[220px] cursor-pointer outline-none dark:text-white custom-select-bg" bind:value={lang}
-                on:change={async () => {
-                    $i18n.changeLanguage(lang);
-                    localStorage.setItem('lang', lang);}}>
+        <div class="bg-white dark:bg-gray-900 p-5 rounded-3xl border border-gray-100 dark:border-gray-800">
+            <label class="block text-xs font-bold text-gray-400 mb-3 uppercase tracking-widest" for="language">{$i18n.t('Language')}</label>
+            <select id="language" class="w-full bg-gray-50 dark:bg-gray-800 border-none rounded-xl py-3 px-4 font-semibold outline-none custom-select-bg" bind:value={lang} on:change={() => { $i18n.changeLanguage(lang); localStorage.setItem('lang', lang); }}>
                 {#each languages as l}
                     <option value={l.code}>{l.title}</option>
                 {/each}
@@ -272,26 +195,21 @@ onMount(async() => {
         </div>
     </section>
 
-    <footer class="mt-8 flex justify-end">
-        <button class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-[40px] py-3 rounded-full font-semibold border-none cursor-pointer shadow-lg shadow-blue-500/20 transition-all active:scale-95" type="button" on:click={async () => {
+    <footer class="mt-6 flex justify-center sm:justify-end">
+        <button class="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-12 py-4 rounded-full font-bold shadow-xl shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all" type="button" on:click={async () => {
                 const res = await submitHandler();
-                if (res) {
-                    toast.success($i18n.t('Changes updated successfully'));
-                    saveHandler();
-                }
+                if (res) { toast.success($i18n.t('Settings Saved!')); saveHandler(); }
             }}>
             {$i18n.t('Save Changes')}
         </button>
     </footer>
-
 </div>
 
 <style>
     .custom-select-bg {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='18 15 12 9 6 15'%3E%3C/polyline%3E%3C/svg%3E"), 
-                          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
         background-repeat: no-repeat;
-        background-position: right 12px top 35%, right 12px bottom 35%;
-        background-size: 10px;
+        background-position: right 16px center;
+        appearance: none;
     }
 </style>

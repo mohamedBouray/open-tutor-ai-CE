@@ -1,3 +1,5 @@
+import shutil
+import os
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from pydantic import BaseModel
@@ -5,9 +7,10 @@ import logging
 import uuid
 from datetime import datetime
 from fastapi.responses import JSONResponse
-from open_webui.utils.auth import get_current_user
+from open_webui.utils.auth import get_current_user, timedelta , get_verified_user
 from open_webui.internal.db import engine, get_db
-from open_tutorai.models.database import Classe,Assignment, Enrollment, Base
+from sqlalchemy import func
+from open_tutorai.models.database import Classe, Enrollment, Base, StudentActivity
 from open_webui.models.users import Users 
 from sqlalchemy.orm import Session, joinedload, sessionmaker
 
@@ -16,6 +19,10 @@ log = logging.getLogger(__name__)
 log.setLevel("INFO")
 
 router = APIRouter()
+
+#########################  To use the get_verified_user function, a parameter (teacher) must be added to the function .
+#  /user/miniconda3/envs/tutorai-env/lib/site-packages/open_webui/utils/auth.py
+##################################################################################
 
 # --- Pydantic Models ---
 class ClasseCreateRequest(BaseModel):
@@ -45,7 +52,8 @@ def get_db_session():
     return Session()
 
 
-
+# --- Classe Endpoints ---
+# get all classes for the current user (teacher) - no role check, just return classes where user_id matches
 @router.get("/all", response_model=List[ClasseResponse])
 async def list_classes(user=Depends(get_current_user)):
     """
@@ -68,8 +76,9 @@ async def list_classes(user=Depends(get_current_user)):
         session.close()
 
 
+# create a new class 
 @router.post("/create", response_model=ClasseResponse)
-async def create_classe(classe_data: ClasseCreateRequest,user=Depends(get_current_user)):
+async def create_classe(classe_data: ClasseCreateRequest,user=Depends(get_verified_user)):
     """
     Create a new Classe (No role check)
     """
@@ -107,7 +116,7 @@ async def create_classe(classe_data: ClasseCreateRequest,user=Depends(get_curren
         session.close()
 
 
-
+# -------- Get Classe By ID --------
 @router.get("/{classe_id}", response_model=ClasseResponse)
 async def get_classe_by_id(classe_id: str, user=Depends(get_current_user)):
     """
@@ -129,11 +138,7 @@ async def get_classe_by_id(classe_id: str, user=Depends(get_current_user)):
 
 
 @router.patch("/{classe_id}", response_model=ClasseResponse)
-async def update_classe(
-    classe_id: str, 
-    classe_data: ClasseCreateRequest, 
-    user=Depends(get_current_user)
-):
+async def update_classe(classe_id: str, classe_data: ClasseCreateRequest, user=Depends(get_current_user)):
     """
     Update an existing classe (No role check)
     """
@@ -147,7 +152,6 @@ async def update_classe(
         if not classe:
             raise HTTPException(status_code=404, detail="Classe not found")
 
-        # Update fields
         classe.name = classe_data.name
         classe.course = classe_data.course
         # classe.updated_at = datetime.now()
@@ -176,6 +180,12 @@ async def delete_classe(classe_id: str, user=Depends(get_current_user)):
         
         if not classe:
             raise HTTPException(status_code=404, detail="Classe not found")
+        
+        # delete class folder
+        class_folder = f"data/uploads/classes/{classe_id}"
+
+        if os.path.exists(class_folder):
+            shutil.rmtree(class_folder)
 
         session.delete(classe)
         session.commit()
@@ -191,8 +201,8 @@ async def delete_classe(classe_id: str, user=Depends(get_current_user)):
 
 
 
-
 ############### Enrollment Endpoints ###############
+# add a student to a class by email (search for user by email, check if they are a student, and enroll them)
 @router.post("/add-student")
 async def add_student_to_classe(
     payload: AddStudentRequest, 
@@ -209,7 +219,6 @@ async def add_student_to_classe(
                 status_code=404, 
                 detail="This email is not registered in the System."
             )
-        
         
         if target_user.role != "user":
             raise HTTPException(
@@ -238,7 +247,11 @@ async def add_student_to_classe(
             id=enrollment_id,
             user_id=target_user.id,
             classe_id=payload.classId,
-            created_at=datetime.now() 
+            points=0,
+            grade=0.0,
+            notes="",
+            created_at=datetime.now()
+
         )
 
         classe.student_count += 1
@@ -254,7 +267,10 @@ async def add_student_to_classe(
             "student": {
                 "id": target_user.id,
                 "name": target_user.name,
-                "email": target_user.email
+                "email": target_user.email,
+                "points": 0,
+                "grade": 0.0,
+                "notes": ""
             }
         }
 
@@ -267,12 +283,11 @@ async def add_student_to_classe(
     finally:
         session.close()
 
-
+# get students in a class with their points and grades, ordered by points desc
 @router.get("/{classe_id}/students")
 async def get_students_by_class_id(classe_id: str, user=Depends(get_current_user)):
-    """
-    Kajibu t-talamid li m-inscrits f had l-class m3a l-points dyalhom
-    """
+    
+    """Get students in a class with their points and grades, ordered by points desc"""
     session = get_db_session()
     try:
         classe = session.query(Classe).filter(
@@ -281,7 +296,7 @@ async def get_students_by_class_id(classe_id: str, user=Depends(get_current_user
         ).first()
 
         if not classe:
-            raise HTTPException(status_code=403, detail="Ma3ndekch l-haq tchouf had l-class")
+            raise HTTPException(status_code=403, detail="you don't have access to this class.")
 
         enrollments = session.query(Enrollment).options(
             joinedload(Enrollment.user)
@@ -293,5 +308,137 @@ async def get_students_by_class_id(classe_id: str, user=Depends(get_current_user
     except Exception as e:
         log.error(f"Error leaderboard: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+class UpdateGradeRequest(BaseModel):
+    grade: float
+    notes: Optional[str] = None
+
+@router.patch("/{classe_id}/students/{user_id}/grade")
+async def update_student_grade(
+    classe_id: str, 
+    user_id: str, 
+    payload: UpdateGradeRequest, 
+    user=Depends(get_current_user)
+):
+    session = get_db_session()
+    try:
+        classe = session.query(Classe).filter(Classe.id == classe_id, Classe.user_id == user.id).first()
+        if not classe:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        enrollment = session.query(Enrollment).filter(
+            Enrollment.classe_id == classe_id,
+            Enrollment.user_id == user_id
+        ).first()
+
+        if not enrollment:
+            raise HTTPException(status_code=404, detail="Student not found in this class")
+
+        enrollment.grade = payload.grade
+        enrollment.notes = payload.notes
+        session.commit()
+        return {"status": "success", "message": "Grade updated"}
+    finally:
+        session.close()        
+
+
+################## Dashboard Stats Endpoint ##################
+@router.get("/teacher/statistics")
+async def get_teacher_stats(
+    classe_id: Optional[str] = None, 
+    current_user = Depends(get_current_user)
+):
+    session = get_db_session()
+    try:
+        query_enrollments = session.query(Enrollment).join(Classe).filter(Classe.user_id == current_user.id)
+
+        if classe_id and classe_id != "undefined" and classe_id != "":
+            query_enrollments = query_enrollments.filter(Classe.id == classe_id)
+
+        total_students = query_enrollments.count()
+        engaged_students = query_enrollments.filter(Enrollment.points > 0).count()
+        engagement_score = round((engaged_students / total_students) * 100) if total_students > 0 else 0
+        avg_grade_val = session.query(func.avg(Enrollment.grade)).join(Classe).filter(Classe.user_id == current_user.id)
+
+        if classe_id and classe_id != "undefined" and classe_id != "":
+            avg_grade_val = avg_grade_val.filter(Classe.id == classe_id)
+
+        success_rate = avg_grade_val.scalar() or 0
+
+        # ---------------------------------------------------------
+        #  DYNAMIC CHARTS & TRENDS LOGIC
+        # ---------------------------------------------------------
+        today = datetime.now()
+        
+        last_7_days = [(today - timedelta(days=i)).date() for i in range(6, -1, -1)]
+        prev_7_days = [(today - timedelta(days=i)).date() for i in range(13, 6, -1)]
+        
+        labels = [d.strftime('%a') for d in last_7_days]
+        
+        fourteen_days_ago = today - timedelta(days=14)
+        query_activities = session.query(StudentActivity).join(Classe).filter(
+            Classe.user_id == current_user.id,
+            StudentActivity.created_at >= fourteen_days_ago
+        )
+        
+        if classe_id and classe_id != "undefined" and classe_id != "":
+            query_activities = query_activities.filter(StudentActivity.classe_id == classe_id)
+
+        activities = query_activities.all()
+
+        weekly_active = [0] * 7
+        previous_weekly = [0] * 7
+        engagement_trend = [0] * 7
+        prev_engagement = 0
+
+        for act in activities:
+            act_date = act.created_at.date()
+            if act_date in last_7_days:
+                index = last_7_days.index(act_date)
+                weekly_active[index] += 1
+                engagement_trend[index] += act.points_earned
+            elif act_date in prev_7_days:
+                index = prev_7_days.index(act_date)
+                previous_weekly[index] += 1
+                prev_engagement += act.points_earned
+
+        def calc_trend(current, previous):
+            if previous == 0:
+                return 100 if current > 0 else 0
+            return round(((current - previous) / previous) * 100, 1)
+
+        current_active_total = sum(weekly_active)
+        prev_active_total = sum(previous_weekly)
+        current_eng_total = sum(engagement_trend)
+
+        active_trend = calc_trend(current_active_total, prev_active_total)
+        eng_trend = calc_trend(current_eng_total, prev_engagement)
+        
+        success_trend = 0.0 if success_rate == 0 else round(success_rate * 0.05, 1) 
+
+        return {
+            "stats": {
+                "activeStudents": int(total_students),
+                "successRate": round(float(success_rate), 1),
+                "aiResponseRate": 0,
+                "engagement": engagement_score
+            },
+            "trends": {
+                "activeStudents": active_trend,
+                "successRate": success_trend,
+                "aiResponseRate": 0,
+                "engagement": eng_trend
+            },
+            "charts": {
+                "labels": labels,
+                "weeklyActive": weekly_active,
+                "previousWeekly": previous_weekly, 
+                "engagementTrend": engagement_trend
+            }
+        }
+    except Exception as e:
+        log.error(f"Backend Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         session.close()
