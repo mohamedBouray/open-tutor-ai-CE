@@ -167,13 +167,11 @@ class StudentActivity(Base):
     __tablename__ = f"{PREFIX}student_activities"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(
-        String, ForeignKey(f"{PREFIX}user.id")
-    )  # Awla 'users.id' 3la 7ssab smit table dyalk
+    user_id = Column(String, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     classe_id = Column(
         String, ForeignKey(f"{PREFIX}classe.id", ondelete="CASCADE"), nullable=True
     )
-    action_type = Column(String)  # Matalan: "login", "assignment_done", "message_sent"
+    action_type = Column(String)
     points_earned = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.now)
 

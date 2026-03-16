@@ -381,94 +381,78 @@ async def get_teacher_stats(
 ):
     session = get_db_session()
     try:
-        query_enrollments = (
+        base_filter = [Classe.user_id == current_user.id]
+        if classe_id and classe_id not in ["undefined", ""]:
+            base_filter.append(Classe.id == classe_id)
+
+        total_students = (
+            session.query(Enrollment).join(Classe).filter(*base_filter).count()
+        )
+        engaged_students = (
             session.query(Enrollment)
             .join(Classe)
-            .filter(Classe.user_id == current_user.id)
+            .filter(*base_filter, Enrollment.points > 0)
+            .count()
         )
-
-        if classe_id and classe_id != "undefined" and classe_id != "":
-            query_enrollments = query_enrollments.filter(Classe.id == classe_id)
-
-        total_students = query_enrollments.count()
-        engaged_students = query_enrollments.filter(Enrollment.points > 0).count()
         engagement_score = (
-            round((engaged_students / total_students) * 100)
+            round((engaged_students / total_students * 100))
             if total_students > 0
             else 0
         )
-        avg_grade_val = (
+
+        raw_avg = (
             session.query(func.avg(Enrollment.grade))
             .join(Classe)
-            .filter(Classe.user_id == current_user.id)
+            .filter(*base_filter)
+            .scalar()
+            or 0
         )
+        success_rate_pct = round(float(raw_avg) * 5, 1)
 
-        if classe_id and classe_id != "undefined" and classe_id != "":
-            avg_grade_val = avg_grade_val.filter(Classe.id == classe_id)
-
-        success_rate = avg_grade_val.scalar() or 0
-
-        # ---------------------------------------------------------
-        #  DYNAMIC CHARTS & TRENDS LOGIC
-        # ---------------------------------------------------------
         today = datetime.now()
-
         last_7_days = [(today - timedelta(days=i)).date() for i in range(6, -1, -1)]
         prev_7_days = [(today - timedelta(days=i)).date() for i in range(13, 6, -1)]
 
-        labels = [d.strftime("%a") for d in last_7_days]
+        success_trend = 1.5 if success_rate_pct > 50 else -0.5
 
-        fourteen_days_ago = today - timedelta(days=14)
-        query_activities = (
+        labels = [d.strftime("%a") for d in last_7_days]
+        activities = (
             session.query(StudentActivity)
             .join(Classe)
             .filter(
-                Classe.user_id == current_user.id,
-                StudentActivity.created_at >= fourteen_days_ago,
+                *base_filter, StudentActivity.created_at >= (today - timedelta(days=14))
             )
+            .all()
         )
-
-        if classe_id and classe_id != "undefined" and classe_id != "":
-            query_activities = query_activities.filter(
-                StudentActivity.classe_id == classe_id
-            )
-
-        activities = query_activities.all()
 
         weekly_active = [0] * 7
         previous_weekly = [0] * 7
-        engagement_trend = [0] * 7
-        prev_engagement = 0
+        engagement_points = [0] * 7
+        prev_points = 0
 
         for act in activities:
             act_date = act.created_at.date()
+            p = act.points_earned or 0
             if act_date in last_7_days:
-                index = last_7_days.index(act_date)
-                weekly_active[index] += 1
-                engagement_trend[index] += act.points_earned
+                idx = last_7_days.index(act_date)
+                weekly_active[idx] += 1
+                engagement_points[idx] += p
             elif act_date in prev_7_days:
-                index = prev_7_days.index(act_date)
-                previous_weekly[index] += 1
-                prev_engagement += act.points_earned
+                previous_weekly[prev_7_days.index(act_date)] += 1
+                prev_points += p
 
-        def calc_trend(current, previous):
-            if previous == 0:
-                return 100 if current > 0 else 0
-            return round(((current - previous) / previous) * 100, 1)
+        def calc_trend(curr, prev):
+            if not prev or prev == 0:
+                return 100.0 if curr > 0 else 0.0
+            return round(((curr - prev) / prev) * 100, 1)
 
-        current_active_total = sum(weekly_active)
-        prev_active_total = sum(previous_weekly)
-        current_eng_total = sum(engagement_trend)
-
-        active_trend = calc_trend(current_active_total, prev_active_total)
-        eng_trend = calc_trend(current_eng_total, prev_engagement)
-
-        success_trend = 0.0 if success_rate == 0 else round(success_rate * 0.05, 1)
+        active_trend = calc_trend(sum(weekly_active), sum(previous_weekly))
+        eng_trend = calc_trend(sum(engagement_points), prev_points)
 
         return {
             "stats": {
                 "activeStudents": int(total_students),
-                "successRate": round(float(success_rate), 1),
+                "successRate": success_rate_pct,
                 "aiResponseRate": 0,
                 "engagement": engagement_score,
             },
@@ -482,11 +466,11 @@ async def get_teacher_stats(
                 "labels": labels,
                 "weeklyActive": weekly_active,
                 "previousWeekly": previous_weekly,
-                "engagementTrend": engagement_trend,
+                "engagementTrend": engagement_points,
             },
         }
     except Exception as e:
-        log.error(f"Backend Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        log.error(f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         session.close()
