@@ -244,7 +244,10 @@
                             </span>
                         </div>
                         <div class="h-[6px] md:h-[8px] bg-[#F3F4F6] dark:bg-gray-800 rounded-full overflow-hidden">
-                            <div class="h-full bg-[#3B82F6] transition-all duration-300"
+                            <div class="h-full transition-all duration-300
+                                {assignment.status === 'Active' ? 'bg-green-500' : 
+                                assignment.status === 'Pending' ? 'bg-amber-500' : 
+                                'bg-[#3B82F6]'}" 
                                 style="width: {assignment.max_submissions > 0 
                                     ? Math.min((assignment.current_submissions / assignment.max_submissions) * 100, 100) 
                                     : 0}%">

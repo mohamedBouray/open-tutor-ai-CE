@@ -50,24 +50,24 @@ def get_db_session():
 
 # --- Helper Functions ---
 def sync_assignment_status(session, assignment):
-    """Sync the status of an assignment based on current time, deadline, and submission counts."""
-
+    """Sync the status: Pending (Deadline fat) takes priority over Completed."""
     now = datetime.now()
+    curr = assignment.current_submissions or 0
+    mx = assignment.max_submissions or 0
     new_status = "Active"
 
-    if (
-        assignment.max_submissions > 0
-        and assignment.current_submissions >= assignment.max_submissions
-    ):
-        new_status = "Completed"
-    elif assignment.deadline and now > assignment.deadline:
+    if assignment.deadline and now > assignment.deadline:
         new_status = "Pending"
+
+    elif mx > 0 and curr >= mx:
+        new_status = "Completed"
+
     else:
         new_status = "Active"
 
     if assignment.status != new_status:
         assignment.status = new_status
-        session.add(assignment)
+
     return new_status
 
 

@@ -388,12 +388,14 @@ async def get_teacher_stats(
         total_students = (
             session.query(Enrollment).join(Classe).filter(*base_filter).count()
         )
+
         engaged_students = (
             session.query(Enrollment)
             .join(Classe)
             .filter(*base_filter, Enrollment.points > 0)
             .count()
         )
+
         engagement_score = (
             round((engaged_students / total_students * 100))
             if total_students > 0
@@ -405,17 +407,14 @@ async def get_teacher_stats(
             .join(Classe)
             .filter(*base_filter)
             .scalar()
-            or 0
         )
-        success_rate_pct = round(float(raw_avg) * 5, 1)
+
+        success_rate_pct = round(float(raw_avg or 0) * 5, 1)
 
         today = datetime.now()
         last_7_days = [(today - timedelta(days=i)).date() for i in range(6, -1, -1)]
         prev_7_days = [(today - timedelta(days=i)).date() for i in range(13, 6, -1)]
 
-        success_trend = 1.5 if success_rate_pct > 50 else -0.5
-
-        labels = [d.strftime("%a") for d in last_7_days]
         activities = (
             session.query(StudentActivity)
             .join(Classe)
@@ -431,8 +430,12 @@ async def get_teacher_stats(
         prev_points = 0
 
         for act in activities:
+            if not act or not act.created_at:
+                continue
+
             act_date = act.created_at.date()
-            p = act.points_earned or 0
+            p = getattr(act, "points_earned", 0) or 0
+
             if act_date in last_7_days:
                 idx = last_7_days.index(act_date)
                 weekly_active[idx] += 1
@@ -444,10 +447,16 @@ async def get_teacher_stats(
         def calc_trend(curr, prev):
             if not prev or prev == 0:
                 return 100.0 if curr > 0 else 0.0
-            return round(((curr - prev) / prev) * 100, 1)
+
+            trend = ((curr - prev) / prev) * 100
+            return round(min(trend, 100.0), 1)
 
         active_trend = calc_trend(sum(weekly_active), sum(previous_weekly))
         eng_trend = calc_trend(sum(engagement_points), prev_points)
+        if total_students == 0:
+            success_trend = 0.0
+        else:
+            success_trend = 1.5 if success_rate_pct > 50 else -0.5
 
         return {
             "stats": {
@@ -463,7 +472,7 @@ async def get_teacher_stats(
                 "engagement": eng_trend,
             },
             "charts": {
-                "labels": labels,
+                "labels": [d.strftime("%a") for d in last_7_days],
                 "weeklyActive": weekly_active,
                 "previousWeekly": previous_weekly,
                 "engagementTrend": engagement_points,
