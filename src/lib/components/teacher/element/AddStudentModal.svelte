@@ -47,6 +47,24 @@
 
     function selectMethod(id: string) { activeStep = id; }
     function goBack() { activeStep = 'selection'; studentName = ''; studentEmail = ''; }
+    
+    async function downloadQR() {
+    try {
+        const canvas = document.querySelector('canvas');
+        if (!canvas) return;
+
+        const url = canvas.toDataURL("image/png");
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `class-qr-${classId}.png`;
+        a.click();
+
+        toast.success($i18n.t("QR Code downloaded!"));
+    } catch (err) {
+        console.error(err);
+        toast.error($i18n.t("Error downloading QR"));
+    }
+}
 
     async function copyLink() {
         try {
@@ -162,6 +180,16 @@
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                 <span>{$i18n.t('Copy Invitation Link')}</span>
                             {/if}
+                        </button>
+                        <button 
+                            on:click={downloadQR} 
+                            class="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-900 dark:bg-gray-800 py-3.5 text-sm font-bold text-white shadow-lg transition-all active:scale-95">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            <span>{$i18n.t('Download QR Code')}</span>
                         </button>
                     </div>
                 </div>

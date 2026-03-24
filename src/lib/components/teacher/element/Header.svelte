@@ -84,7 +84,7 @@
                 <h2 class="m-0 p-0 text-2xl font-light dark:text-white">
                     {$i18n.t("Hello")}, <span>{$user?.name?.split(' ')[0]}</span>!
                 </h2>
-                <img src="/teacher/emoji.png" alt="emoji" class="{isRTL ? 'mr-2' : 'ml-2'} h-6 w-6"> 
+                <img src="/static/emoji.png" alt="emoji" class="{isRTL ? 'mr-2' : 'ml-2'} h-6 w-6"> 
             </div>
             <p class="text-xs text-slate-500 dark:text-gray-400 mt-1 font-medium tracking-wide">
                 {$i18n.t("Manage your classes and track student progress.")}
@@ -95,7 +95,7 @@
     <div class="flex h-[51px] flex-1 md:flex-none md:w-[400px] {isRTL ? 'md:mr-auto' : 'md:ml-auto'} items-center justify-between rounded-[30px] bg-white px-4 shadow-md dark:bg-gray-900 dark:shadow-none dark:border dark:border-gray-800">
         
         <div class="flex min-w-[80px] flex-1 items-center gap-2.5 rounded-2xl px-1 sm:px-4 py-1">
-            <img src="/teacher/recherche.svg" alt="Rechercher" class="h-[18px] w-[18px] cursor-pointer rounded-full dark:invert-[0.8]">
+            <img src="/static/recherche.svg" alt="Rechercher" class="h-[18px] w-[18px] cursor-pointer rounded-full dark:invert-[0.8]">
             <input type="text" class="w-full border-none bg-transparent text-[13px] focus:outline-none dark:text-white dark:placeholder-gray-500" 
                 placeholder="{$i18n.t("Search")}"
                 on:click|stopPropagation={() => {showUserDropdown = false; showNotifications = false;}}>
@@ -107,7 +107,7 @@
                 <button class="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-gray-100 dark:hover:bg-gray-800" 
                     on:click|stopPropagation={toggleNotificationPanel}
                     aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} unread)` : ''}`}>
-                        <img src="/teacher/notifications_none.png" alt="Notifications" class="h-5 w-5 dark:invert">
+                        <img src="/static/notifications_none.png" alt="Notifications" class="h-5 w-5 dark:invert">
                         {#if notificationCount > 0}
                             <span class="absolute {isRTL ? '-left-1' : '-right-1'} -top-1 flex min-w-[16px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-bold text-white dark:border-gray-900">
                                 {notificationCount}
@@ -156,7 +156,7 @@
 
             <div>
                 <button class="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                    <img src="/teacher/info_outline.png" alt="Help" class="h-5 w-5 dark:invert">
+                    <img src="/static/info_outline.png" alt="Help" class="h-5 w-5 dark:invert">
                 </button>
             </div>
 

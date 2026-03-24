@@ -182,7 +182,7 @@
                     
                     <div class="flex gap-4 sm:gap-[18px] relative mb-4 sm:mb-[20px]">
                         <div class="w-[60px] h-[60px] sm:w-[70px] sm:h-[70px] bg-gradient-to-br from-[#eef2ff] to-[#e0e7ff] dark:from-gray-800 dark:to-gray-700 rounded-[12px] flex items-center justify-center flex-shrink-0">
-                            <img src="/teacher/Classes.png" alt="Class_Icon" class="w-8 h-8 sm:w-[40px] sm:h-[40px] object-contain dark:brightness-110">
+                            <img src="/static/Classes.png" alt="Class_Icon" class="w-8 h-8 sm:w-[40px] sm:h-[40px] object-contain dark:brightness-110">
                         </div>
                         
                         <div class="flex-grow min-w-0">
